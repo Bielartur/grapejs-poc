@@ -8,7 +8,11 @@ import {
     Type,
 } from '@lucide/vue';
 import type { Component as ComponenteVue } from 'vue';
-import { TIPO_CAMPO } from '@/lib/pdf-template/tipos-componente';
+import {
+    TIPO_CAMPO,
+    TIPO_COLUNA,
+    TIPO_LINHA,
+} from '@/lib/pdf-template/tipos-componente';
 
 /**
  * BLOCOS
@@ -109,27 +113,13 @@ export const BLOCOS: DefinicaoBloco[] = [
     },
     {
         id: 'colunas',
-        rotulo: 'Duas colunas',
+        rotulo: 'Colunas',
         icone: Columns2,
+        // Nasce com duas; o trait "Quantidade de colunas" no painel leva
+        // a três ou quatro. Toda a estrutura mora no Component Type.
         conteudo: {
-            tagName: 'div',
-            name: 'Duas colunas',
-            // `flex` funciona em navegador. Se o renderizador de PDF for
-            // Dompdf/mPDF (que não suportam flex), trocar por
-            // inline-block + largura em %.
-            classes: ['flex', 'gap-4', 'mb-4'],
-            components: [
-                {
-                    tagName: 'div',
-                    name: 'Coluna',
-                    classes: ['w-1/2'],
-                },
-                {
-                    tagName: 'div',
-                    name: 'Coluna',
-                    classes: ['w-1/2'],
-                },
-            ],
+            type: TIPO_LINHA,
+            components: [{ type: TIPO_COLUNA }, { type: TIPO_COLUNA }],
         },
     },
     {
@@ -156,8 +146,18 @@ export const TEMPLATE_INICIAL = `
         <span data-bind="curso_nome"></span>, com carga horária de
         <span data-bind="carga_horaria"></span>.
     </p>
-    <div class="bg-zinc-100 border border-zinc-200 rounded-lg p-4 mb-4">
-        <div class="text-xs uppercase text-zinc-600">Valor total</div>
-        <div class="text-lg font-bold"><span data-bind="valor_total"></span></div>
+    <div data-linha data-colunas="2" class="flex gap-4 mb-4">
+        <div data-coluna class="w-1/2 min-w-0">
+            <div class="bg-zinc-100 border border-zinc-200 rounded-lg p-4">
+                <div class="text-xs uppercase text-zinc-600">Valor total</div>
+                <div class="text-lg font-bold"><span data-bind="valor_total"></span></div>
+            </div>
+        </div>
+        <div data-coluna class="w-1/2 min-w-0">
+            <div class="bg-zinc-100 border border-zinc-200 rounded-lg p-4">
+                <div class="text-xs uppercase text-zinc-600">Emitido em</div>
+                <div class="text-lg font-bold"><span data-bind="data_emissao"></span></div>
+            </div>
+        </div>
     </div>
 `;

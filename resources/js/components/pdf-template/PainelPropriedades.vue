@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { MousePointerClick, Trash2 } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -46,6 +46,24 @@ const secaoAberta = ref<string | null>('texto');
 function alternarSecao(id: string) {
     secaoAberta.value = secaoAberta.value === id ? null : id;
 }
+
+/** Seções gerais + as específicas do tipo selecionado. */
+const secoesVisiveis = computed(() =>
+    SECOES.filter((s) => !s.tipos || (props.tipo && s.tipos.includes(props.tipo))),
+);
+
+/**
+ * Uma seção específica de tipo é o motivo de o usuário ter clicado
+ * naquele elemento — abrir sozinha poupa um clique e evita que ela passe
+ * despercebida no meio das seções gerais, todas fechadas.
+ */
+watch(
+    () => props.tipo,
+    () => {
+        const especifica = secoesVisiveis.value.find((s) => s.tipos);
+        if (especifica) secaoAberta.value = especifica.id;
+    },
+);
 
 /** Qual opção de cada grupo está aplicada no componente selecionado. */
 function ativa(grupo: GrupoUtilitario): string | null {
@@ -157,7 +175,7 @@ const ehImagem = computed(() => props.tipo === 'image');
             </h3>
 
             <div
-                v-for="secao in SECOES"
+                v-for="secao in secoesVisiveis"
                 :key="secao.id"
                 class="overflow-hidden rounded-lg border"
             >

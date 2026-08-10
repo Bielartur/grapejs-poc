@@ -19,6 +19,8 @@
  * Tailwind v4 os detecta ao varrer os arquivos e gera o CSS.
  */
 
+import { TIPO_LINHA } from '@/lib/pdf-template/tipos-componente';
+
 export type OpcaoUtilitario = {
     classe: string;
     rotulo: string;
@@ -37,6 +39,12 @@ export type SecaoUtilitarios = {
     id: string;
     rotulo: string;
     grupos: GrupoUtilitario[];
+    /**
+     * Quando presente, a seção só aparece para estes Component Types.
+     * Serve pra não poluir o painel de um parágrafo com controles que
+     * só fazem sentido numa linha de colunas.
+     */
+    tipos?: string[];
 };
 
 export const SECOES: SecaoUtilitarios[] = [
@@ -285,10 +293,42 @@ export const SECOES: SecaoUtilitarios[] = [
                 formato: 'lista',
                 opcoes: [
                     { classe: 'w-auto', rotulo: 'Auto' },
+                    { classe: 'w-1/4', rotulo: '1/4' },
                     { classe: 'w-1/3', rotulo: '1/3' },
                     { classe: 'w-1/2', rotulo: '1/2' },
                     { classe: 'w-2/3', rotulo: '2/3' },
+                    { classe: 'w-3/4', rotulo: '3/4' },
                     { classe: 'w-full', rotulo: '100%' },
+                ],
+            },
+        ],
+    },
+    {
+        id: 'colunas',
+        rotulo: 'Colunas',
+        tipos: [TIPO_LINHA],
+        grupos: [
+            {
+                id: 'espaco-colunas',
+                rotulo: 'Espaço entre',
+                formato: 'lista',
+                opcoes: [
+                    { classe: 'gap-0', rotulo: '0' },
+                    { classe: 'gap-2', rotulo: '2' },
+                    { classe: 'gap-4', rotulo: '4' },
+                    { classe: 'gap-6', rotulo: '6' },
+                    { classe: 'gap-8', rotulo: '8' },
+                ],
+            },
+            {
+                id: 'alinhamento-vertical',
+                rotulo: 'Alinhamento vertical',
+                formato: 'lista',
+                opcoes: [
+                    { classe: 'items-stretch', rotulo: 'Esticar' },
+                    { classe: 'items-start', rotulo: 'Topo' },
+                    { classe: 'items-center', rotulo: 'Centro' },
+                    { classe: 'items-end', rotulo: 'Base' },
                 ],
             },
         ],

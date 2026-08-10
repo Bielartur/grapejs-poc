@@ -76,6 +76,32 @@ export function useEditorPdf() {
                     background: #fff;
                     margin: 0;
                 }
+
+                /*
+                 * Uma coluna vazia tem altura zero — o GrapesJS não
+                 * consegue desenhar indicador de drop numa área sem
+                 * pixels, e o bloco arrastado acaba caindo como irmão da
+                 * linha. Reservar altura é o que torna a coluna um alvo
+                 * de fato. Vale só no canvas: no PDF a coluna vazia volta
+                 * a não ocupar espaço.
+                 */
+                [data-coluna]:empty {
+                    min-height: 64px;
+                    outline: 1px dashed #d4d4d8;
+                    outline-offset: -1px;
+                    border-radius: 4px;
+                }
+
+                [data-coluna]:empty::after {
+                    content: 'Solte um bloco aqui';
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    height: 64px;
+                    font-family: ui-sans-serif, system-ui, sans-serif;
+                    font-size: 11px;
+                    color: #a1a1aa;
+                }
             `,
         });
 

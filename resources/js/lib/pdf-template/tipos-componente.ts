@@ -1,9 +1,11 @@
-import type { Editor } from 'grapesjs';
+import type { Component, Editor } from 'grapesjs';
 import { createApp, h, ref, type App } from 'vue';
 import CampoDinamico from '@/components/pdf-template/canvas/CampoDinamico.vue';
 import { CAMPO_PADRAO, OPCOES_TRAIT_CAMPO } from '@/lib/pdf-template/schema';
 
 export const TIPO_CAMPO = 'campo-dinamico';
+export const TIPO_LINHA = 'linha-colunas';
+export const TIPO_COLUNA = 'coluna';
 
 /**
  * COMPONENT TYPE CUSTOMIZADO — a peça central do binding de dados.
@@ -22,6 +24,8 @@ export const TIPO_CAMPO = 'campo-dinamico';
  * sendo um `<span data-bind="..."></span>` limpo pro PHP preencher.
  */
 export function registrarTipos(editor: Editor) {
+    registrarColunas(editor);
+
     editor.Components.addType(TIPO_CAMPO, {
         /**
          * O reconhecedor. Quando o GrapesJS faz parse de um HTML, ele
@@ -120,6 +124,121 @@ export function registrarTipos(editor: Editor) {
                 this.appVue?.unmount();
                 this.appVue = null;
                 this.pontoVue = null;
+            },
+        },
+    });
+}
+
+/** Largura de cada coluna quando a linha é dividida em partes iguais. */
+const LARGURAS_IGUAIS: Record<number, string> = {
+    2: 'w-1/2',
+    3: 'w-1/3',
+    4: 'w-1/4',
+};
+
+/**
+ * COLUNAS — o que permite dois elementos lado a lado.
+ *
+ * São dois types que só existem em par: a LINHA é o container flex, e a
+ * COLUNA é a única coisa que pode viver dentro dela. As restrições de
+ * `droppable`/`draggable` são o que impede o usuário não técnico de
+ * desmontar a estrutura soltando um bloco no lugar errado.
+ *
+ * Por que flex e não tabela: o pipeline de PDF é Browsershot, ou seja,
+ * Chromium de verdade — o que o canvas mostra é o que o PDF renderiza.
+ *
+ * Por que `w-1/2` funciona junto com `gap-4`: item flex encolhe por
+ * padrão, e o encolhimento é proporcional à base. Duas colunas de 50%
+ * com 16px de gap viram 50% - 8px cada; 1/3 e 2/3 continuam exatamente
+ * 1:2 depois do desconto. Não precisa de `calc()` nem de basis.
+ */
+function registrarColunas(editor: Editor) {
+    editor.Components.addType(TIPO_LINHA, {
+        isComponent: (el) =>
+            el.hasAttribute?.('data-linha') ? { type: TIPO_LINHA } : undefined,
+
+        model: {
+            defaults: {
+                tagName: 'div',
+                name: 'Linha',
+                attributes: { 'data-linha': '', 'data-colunas': '2' },
+                classes: ['flex', 'gap-4', 'mb-4'],
+
+                /**
+                 * Só colunas entram numa linha. Precisa ser FUNÇÃO, e não
+                 * seletor em string: a forma em string é resolvida com
+                 * `source.getEl()`, e um bloco arrastado da paleta ainda
+                 * não tem elemento no DOM — a checagem falharia sempre.
+                 */
+                droppable: (source: Component) =>
+                    source?.get('type') === TIPO_COLUNA,
+
+                traits: [
+                    {
+                        type: 'select',
+                        name: 'data-colunas',
+                        label: 'Quantidade de colunas',
+                        options: [
+                            { id: '2', value: '2', label: '2 colunas' },
+                            { id: '3', value: '3', label: '3 colunas' },
+                            { id: '4', value: '4', label: '4 colunas' },
+                        ],
+                    },
+                ],
+            },
+
+            init(this: any) {
+                this.on('change:attributes:data-colunas', this.ajustarColunas);
+            },
+
+            /**
+             * Mantém a quantidade de filhos igual ao trait. Trocar a
+             * quantidade é uma ação explícita do usuário, então também
+             * volta as larguras pra partes iguais — senão sobrariam
+             * colunas antigas de `w-1/2` ao lado de uma nova de `w-1/3`.
+             */
+            ajustarColunas(this: any) {
+                const alvo = Number(this.getAttributes()['data-colunas']) || 2;
+                const colunas = this.components();
+
+                while (colunas.length > alvo) {
+                    colunas.at(colunas.length - 1).remove();
+                }
+                while (colunas.length < alvo) {
+                    colunas.add({ type: TIPO_COLUNA });
+                }
+
+                colunas.each((coluna: Component) => {
+                    coluna
+                        .getClasses()
+                        .filter((c: string) => c.startsWith('w-'))
+                        .forEach((c: string) => coluna.removeClass(c));
+                    coluna.addClass(LARGURAS_IGUAIS[alvo]);
+                });
+            },
+        },
+    });
+
+    editor.Components.addType(TIPO_COLUNA, {
+        isComponent: (el) =>
+            el.hasAttribute?.('data-coluna')
+                ? { type: TIPO_COLUNA }
+                : undefined,
+
+        model: {
+            defaults: {
+                tagName: 'div',
+                name: 'Coluna',
+                attributes: { 'data-coluna': '' },
+
+                // `min-w-0` impede que uma palavra longa ou uma imagem
+                // estoure a fração e empurre a coluna vizinha
+                classes: ['w-1/2', 'min-w-0'],
+
+                // uma coluna só faz sentido dentro de uma linha; soltá-la
+                // no documento é rejeitado em vez de gerar um órfão
+                draggable: (_source: Component, target: Component) =>
+                    target?.get('type') === TIPO_LINHA,
             },
         },
     });
