@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
@@ -24,6 +25,18 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        /*
+         * Stand-in do @money do cknow/laravel-money, que o sistema real
+         * usa. Existe aqui só pra os partials da fatura serem recortes
+         * literais do template de produção — sem ele, cada `@money`
+         * precisaria virar outra coisa e os arquivos deixariam de ser
+         * liftáveis de volta.
+         *
+         * Atenção ao lifting: aqui a entrada é float em reais; confirmar
+         * se lá o helper espera centavos.
+         */
+        Blade::directive('money', fn (string $expressao) => "<?php echo 'R$ '.number_format((float) ({$expressao}), 2, ',', '.'); ?>");
     }
 
     /**

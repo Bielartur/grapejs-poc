@@ -9,7 +9,13 @@ import { defineConfig } from 'vite';
 export default defineConfig({
     plugins: [
         laravel({
-            input: ['resources/css/app.css', 'resources/js/app.ts'],
+            input: [
+                'resources/css/app.css',
+                // CSS do documento da fatura: carregado pela casca do
+                // preview e pela de geração do PDF, nunca pelo app
+                'resources/css/fatura.css',
+                'resources/js/app.ts',
+            ],
             refresh: true,
             fonts: [
                 bunny('Instrument Sans', {

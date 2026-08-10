@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
-import EditorTemplatePdf from '@/components/pdf-template/EditorTemplatePdf.vue';
+import { Head, Link } from '@inertiajs/vue3';
+import { ArrowRight, FileText } from '@lucide/vue';
+import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
+import { index as layoutFatura } from '@/routes/fatura/layout';
 
 defineOptions({
     layout: {
@@ -16,19 +18,30 @@ defineOptions({
 </script>
 
 <template>
-    <Head title="Editor de template de PDF" />
+    <Head title="Dashboard" />
 
-    <div class="flex h-full min-h-0 flex-1 flex-col gap-3 p-4">
-        <div>
-            <h1 class="text-lg font-semibold">Editor de template de PDF</h1>
-            <p class="text-sm text-muted-foreground">
-                Protótipo com GrapesJS: monte o layout, vincule os campos ao
-                schema fixo e veja o HTML que alimentaria a geração do PDF.
-            </p>
-        </div>
+    <div class="flex flex-1 flex-col gap-4 p-4">
+        <div
+            class="flex flex-col items-start gap-3 rounded-xl border bg-card p-6"
+        >
+            <FileText class="size-5 text-muted-foreground" />
 
-        <div class="min-h-[70vh] flex-1">
-            <EditorTemplatePdf />
+            <div>
+                <h2 class="text-base font-semibold">Layout da fatura</h2>
+                <p
+                    class="max-w-xl text-sm leading-relaxed text-muted-foreground"
+                >
+                    Escolha quais blocos entram no PDF, em que ordem e em qual
+                    página. Cada bloco é renderizado pelo mesmo Blade que gera o
+                    documento final — o preview não é uma aproximação.
+                </p>
+            </div>
+
+            <Button as-child size="sm">
+                <Link :href="layoutFatura()">
+                    Abrir editor <ArrowRight />
+                </Link>
+            </Button>
         </div>
     </div>
 </template>

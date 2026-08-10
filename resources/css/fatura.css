@@ -1,0 +1,74 @@
+/*
+ * CSS DO DOCUMENTO DA FATURA
+ *
+ * Copiado tal e qual do <style> de
+ * `invoice-file/templates/default.blade.php` no resolaris.
+ *
+ * Carregado por duas cascas: o preview do editor e a de geração do PDF.
+ * Não virou utilitário Tailwind de propósito — é CSS do documento, não
+ * escolha do usuário, e reescrevê-lo quebraria a equivalência com o
+ * template de produção.
+ */
+
+.page-break {
+    page-break-before: always;
+}
+
+/*
+ * UNIDADES DE QUEBRA
+ *
+ * `data-unidade` marca o que não pode ser cortado ao meio pela quebra de
+ * folha: se não couber no que resta da página, desce inteiro pra
+ * próxima. Vale no PDF (o Chromium respeita na paginação) e é a mesma
+ * marcação que o preview do editor lê pra calcular onde cada folha
+ * começa.
+ *
+ * A granularidade importa. O bloco inteiro é uma unidade, mas blocos
+ * grandes marcam unidades MENORES por dentro — uma unidade consumidora
+ * no histórico, um item no detalhamento. Sem isso, um bloco mais alto
+ * que a folha torna a regra impossível de honrar e o corte volta a cair
+ * no meio de uma tabela.
+ *
+ * O preview considera as unidades mais internas; as externas seguem
+ * valendo no PDF quando couberem.
+ */
+[data-unidade] {
+    break-inside: avoid;
+}
+
+.boleto-border {
+    border: 1px solid #000;
+}
+
+.boleto-text {
+    font-family: 'Figtree', sans-serif;
+    font-size: 9pt;
+}
+
+.barcode-placeholder {
+    height: 60px;
+    background: repeating-linear-gradient(
+        0deg,
+        #000,
+        #000 2px,
+        transparent 2px,
+        transparent 4px
+    );
+}
+
+table {
+    border-collapse: collapse;
+}
+
+th,
+td {
+    border: 1px solid #000;
+    padding: 4px;
+}
+
+/* O iframe do preview é medido pelo editor pra contar folhas; margem no
+   body atrapalharia a conta. */
+body {
+    margin: 0;
+    background: #fff;
+}
