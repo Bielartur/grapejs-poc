@@ -301,6 +301,33 @@ final class CatalogoBlocos
                 ],
                 'opcoes' => [],
             ],
+
+            'notificacao_problema' => [
+                'rotulo' => 'Notificação de problema',
+                'descricao' => 'A quem ligar quando falta energia, e o que informar',
+                'icone' => 'triangle-alert',
+                'disponivel' => true,
+                'obrigatorio' => false,
+                'rotulo_vazio' => 'Sem nenhuma notificação',
+                'variantes' => [
+                    'padrao' => [
+                        'rotulo' => 'Padrão',
+                        'descricao' => 'Faixa de alerta com o telefone à direita',
+                    ],
+                ],
+                'opcoes' => [
+                    'mostrar_identificacao' => [
+                        'tipo' => 'bool',
+                        'rotulo' => 'Mostrar o que informar na ligação',
+                        'padrao' => true,
+                    ],
+                    'mostrar_telefone' => [
+                        'tipo' => 'bool',
+                        'rotulo' => 'Mostrar telefone da distribuidora',
+                        'padrao' => true,
+                    ],
+                ],
+            ],
         ];
     }
 

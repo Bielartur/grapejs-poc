@@ -430,6 +430,48 @@ const ESQUEMAS: Record<string, Forma[]> = {
             ],
         },
     ],
+
+    'notificacao_problema/padrao': [
+        {
+            t: 'caixa',
+            borda: true,
+            recheio: 7,
+            direcao: 'linha',
+            alinhar: 'entre',
+            gap: 8,
+            filhos: [
+                {
+                    t: 'caixa',
+                    l: '62%',
+                    gap: 4,
+                    filhos: [
+                        { t: 'barra', l: '80%', tom: 'forte' },
+                        {
+                            t: 'caixa',
+                            direcao: 'linha',
+                            alinhar: 'inicio',
+                            gap: 4,
+                            filhos: [
+                                { t: 'barra', l: '18%' },
+                                { t: 'caixa', l: '26%', a: 8, borda: true },
+                                { t: 'caixa', l: '26%', a: 8, borda: true },
+                            ],
+                        },
+                    ],
+                },
+                {
+                    t: 'caixa',
+                    l: '24%',
+                    gap: 4,
+                    alinhar: 'fim',
+                    filhos: [
+                        { t: 'barra', l: '70%', a: 10, tom: 'forte' },
+                        { t: 'barra', l: '90%' },
+                    ],
+                },
+            ],
+        },
+    ],
 };
 
 /** `null` quando a variante ainda não tem desenho. */

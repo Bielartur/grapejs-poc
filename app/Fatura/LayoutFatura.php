@@ -57,7 +57,7 @@ final class LayoutFatura
     public static function padrao(): self
     {
         $paginas = [
-            ['cabecalho', 'dados_cliente', 'resumo_consumo', 'pix', 'codigo_barras', 'boleto', 'grafico'],
+            ['cabecalho', 'dados_cliente', 'resumo_consumo', 'pix', 'codigo_barras', 'boleto', 'grafico', 'notificacao_problema'],
             ['detalhamento_uc'],
             ['historico_consumo'],
             ['anexos_concessionaria'],

@@ -8,6 +8,7 @@ import {
     QrCode,
     Receipt,
     Table,
+    TriangleAlert,
     User,
 } from '@lucide/vue';
 // o tipo vem do Vue, não do lucide: lá `Component` é o componente em si,
@@ -31,6 +32,7 @@ const ICONES: Record<string, Component> = {
     table: Table,
     history: History,
     paperclip: Paperclip,
+    'triangle-alert': TriangleAlert,
 };
 
 export function iconeDoBloco(nome: string | undefined): Component {

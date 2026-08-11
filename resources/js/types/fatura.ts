@@ -32,6 +32,13 @@ export type Cliente = {
     address: { full_address: string } | null;
 };
 
+/** Quem atende falta de energia — a dona da rede, não a emissora. */
+export type Distribuidora = {
+    name: string;
+    phone: string;
+    service_hours: string;
+};
+
 export type Invoice = {
     code: string;
     /** ISO-8601. `null` quando o registro real não tem a data. */
@@ -81,6 +88,9 @@ export type DadosFatura = {
     customer: Cliente;
     invoice: Invoice;
     reference_month_label: string;
+
+    /** `null` quando o cadastro real não tem distribuidora. */
+    distributor: Distribuidora | null;
 
     credits_used: number;
     active_kwh_used: number;

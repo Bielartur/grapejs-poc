@@ -59,6 +59,18 @@ final class DadosExemplo
 
             'reference_month_label' => 'Julho / 2026',
 
+            /*
+             * A distribuidora é de quem é a REDE, não de quem emite a
+             * fatura — é ela que atende falta de energia. Vem como campo
+             * próprio, e não em texto fixo no componente, porque muda por
+             * região do cliente.
+             */
+            'distributor' => self::obj([
+                'name' => 'NeoEnergia',
+                'phone' => '116',
+                'service_hours' => 'atendimento 24h',
+            ]),
+
             // resumo de consumo
             'credits_used' => 742,
             'active_kwh_used' => 918,

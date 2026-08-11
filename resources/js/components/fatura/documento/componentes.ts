@@ -10,6 +10,7 @@ import DetalhamentoUcCartoes from '@/components/fatura/documento/blocos/detalham
 import DetalhamentoUcPadrao from '@/components/fatura/documento/blocos/detalhamento_uc/Padrao.vue';
 import DetalhamentoUcResumida from '@/components/fatura/documento/blocos/detalhamento_uc/Resumida.vue';
 import HistoricoConsumoPadrao from '@/components/fatura/documento/blocos/historico_consumo/Padrao.vue';
+import NotificacaoProblemaPadrao from '@/components/fatura/documento/blocos/notificacao_problema/Padrao.vue';
 import PixPadrao from '@/components/fatura/documento/blocos/pix/Padrao.vue';
 import ResumoConsumoFaixa from '@/components/fatura/documento/blocos/resumo_consumo/Faixa.vue';
 import ResumoConsumoLista from '@/components/fatura/documento/blocos/resumo_consumo/Lista.vue';
@@ -62,6 +63,9 @@ export const COMPONENTES: Record<string, Record<string, Component>> = {
     },
     anexos_concessionaria: {
         padrao: AnexosConcessionariaPadrao,
+    },
+    notificacao_problema: {
+        padrao: NotificacaoProblemaPadrao,
     },
 };
 
