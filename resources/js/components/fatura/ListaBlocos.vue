@@ -13,8 +13,10 @@ import {
     Table,
     User,
 } from '@lucide/vue';
-import type { Component as ComponenteVue } from '@lucide/vue';
 import { ref } from 'vue';
+// o tipo vem do Vue, não do lucide: lá `Component` é o componente em si,
+// um valor, e usá-lo como tipo não compila
+import type { Component as ComponenteVue } from 'vue';
 import ChaveBloco from '@/components/fatura/ChaveBloco.vue';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';

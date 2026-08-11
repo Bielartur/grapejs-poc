@@ -10,14 +10,16 @@ use stdClass;
 /**
  * Fatura de exemplo para o preview do editor.
  *
- * A FORMA aqui é copiada do sistema real (resolaris): mesmos nomes de
- * variável (`$invoice`, `$customer`, `$invoice_items`), datas em Carbon
- * pra `?->format('d/m/Y')` funcionar, valores em float pra `@money`.
+ * Os nomes de chave (`invoice`, `customer`, `invoice_items`) seguem a
+ * convenção de um backend Laravel típico, com datas em Carbon e valores
+ * em float.
  *
- * Isso é proposital. Os partials em `resources/views/fatura/blocos/`
- * são recortes literais do template de produção — se os dados tivessem
- * outro formato, eles deixariam de ser liftáveis de volta e a gente
- * teria criado uma segunda fonte de verdade pela porta dos fundos.
+ * A forma importa: o array vira JSON sem DTO no caminho — Carbon
+ * serializa pra ISO-8601 e `stdClass` vira objeto —, e o contrato do
+ * outro lado é `resources/js/types/fatura.ts`. Mudar os nomes aqui
+ * criaria uma segunda fonte de verdade pela porta dos fundos.
+ *
+ * Todos os dados são fictícios.
  */
 final class DadosExemplo
 {
@@ -30,19 +32,19 @@ final class DadosExemplo
 
         return [
             'company' => self::obj([
-                'fantasy_name' => 'Solaris Energia',
-                'name' => 'Solaris Energia Ltda.',
+                'fantasy_name' => 'Aurora Energia',
+                'name' => 'Aurora Energia Ltda.',
                 'document' => '12.345.678/0001-90',
-                'phone' => '(11) 4002-8922',
-                'email' => 'contato@solaris.com.br',
+                'phone' => '(11) 5555-0100',
+                'email' => 'contato@example.com',
             ]),
             'company_logo_url' => null,
 
             'customer' => self::obj([
                 'name' => 'Maria Silva Andrade',
                 'document' => '123.456.789-00',
-                'phone' => '(19) 98812-4470',
-                'email' => 'maria.andrade@email.com',
+                'phone' => '(19) 99999-0100',
+                'email' => 'maria.andrade@example.com',
                 'address' => self::obj([
                     'full_address' => 'Rua das Acácias, 480 — Campinas/SP',
                 ]),
@@ -145,9 +147,8 @@ final class DadosExemplo
     }
 
     /**
-     * Histórico por item, na mesma forma do componente de produção:
-     * chaveado pelo id do item, com 12 meses pra o bloco poder cortar
-     * em 6 conforme a opção escolhida no editor.
+     * Histórico chaveado pelo id do item, com 12 meses pra o bloco
+     * poder cortar em 6 conforme a opção escolhida no editor.
      *
      * @return array<int, list<array<string, mixed>>>
      */

@@ -10,10 +10,9 @@ use JsonException;
 /**
  * Persistência do layout.
  *
- * Arquivo JSON único porque isto é protótipo. No sistema real vira uma
- * coluna `json` na empresa (o layout é global por empresa, como diz o
- * subtítulo da tela) — e a troca é só este arquivo, já que todo o resto
- * conversa via `LayoutFatura`.
+ * Arquivo JSON único porque isto é protótipo. Num sistema completo isto
+ * vira uma coluna `json` na tabela da empresa — e a troca é só este
+ * arquivo, já que todo o resto conversa via `LayoutFatura`.
  */
 final class RepositorioLayout
 {

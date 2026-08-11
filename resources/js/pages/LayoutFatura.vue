@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { Lock, Minus, Plus, Save, Undo2, X } from '@lucide/vue';
+import { Download, Lock, Minus, Plus, Save, Undo2, X } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import ListaBlocos from '@/components/fatura/ListaBlocos.vue';
 import PreviewFatura from '@/components/fatura/PreviewFatura.vue';
@@ -15,19 +15,25 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useLayoutFatura } from '@/composables/useLayoutFatura';
-import { dashboard } from '@/routes';
 import type {
     BlocoCatalogo,
     Layout,
     Tema,
 } from '@/composables/useLayoutFatura';
+import { dashboard } from '@/routes';
+import { baixar } from '@/routes/fatura/pdf';
+import type { DadosFatura } from '@/types/fatura';
 
 /**
  * EDITOR DE LAYOUT DA FATURA
  *
  * O usuário escolhe QUAIS blocos entram e em que ordem — nunca monta
- * layout livre. Cada bloco é um partial Blade no backend, o mesmo que
- * gera o PDF, então o preview não é uma aproximação: é o documento.
+ * layout livre.
+ *
+ * O documento é renderizado pelos componentes de `fatura/documento/`, os
+ * MESMOS que o Browsershot abre pra gerar o PDF. Por isso o preview não
+ * é uma aproximação — e por isso nenhuma marcação de fatura pode ser
+ * escrita fora daquela pasta.
  */
 
 const props = defineProps<{
@@ -35,6 +41,8 @@ const props = defineProps<{
     layout: Layout;
     /** Valores válidos de cada chave do tema, vindos do PHP. */
     temaOpcoes: Record<keyof Tema, Record<string, string>>;
+    /** Fatura de exemplo, para o documento renderizado em Vue. */
+    dados: DadosFatura;
 }>();
 
 const editor = useLayoutFatura(props.layout);
@@ -43,6 +51,8 @@ const selecionado = ref<string | null>(null);
 const folhasPorPagina = ref<number[]>([]);
 const zoom = ref(1);
 const salvando = ref(false);
+const gerandoPdf = ref(false);
+const erroPdf = ref<string | null>(null);
 
 const totalFolhas = computed(() =>
     folhasPorPagina.value.reduce((soma, n) => soma + n, 0),
@@ -52,6 +62,48 @@ async function salvar() {
     salvando.value = true;
     await editor.persistir();
     salvando.value = false;
+}
+
+/**
+ * Gera o PDF da configuração que está na tela, salva ou não.
+ *
+ * É POST porque o schema inteiro vai no corpo — e a resposta é binária,
+ * daí baixar via blob em vez de navegar para a URL.
+ */
+async function baixarPdf() {
+    gerandoPdf.value = true;
+    erroPdf.value = null;
+
+    try {
+        const resposta = await fetch(baixar.url(), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN':
+                    document
+                        .querySelector('meta[name="csrf-token"]')
+                        ?.getAttribute('content') ?? '',
+            },
+            body: JSON.stringify(editor.layout.value),
+        });
+
+        if (!resposta.ok) {
+            throw new Error(`HTTP ${resposta.status}`);
+        }
+
+        const url = URL.createObjectURL(await resposta.blob());
+        const link = document.createElement('a');
+
+        link.href = url;
+        link.download = 'fatura.pdf';
+        link.click();
+
+        URL.revokeObjectURL(url);
+    } catch (e) {
+        erroPdf.value = e instanceof Error ? e.message : 'Falha ao gerar';
+    } finally {
+        gerandoPdf.value = false;
+    }
 }
 
 const ajustarZoom = (delta: number) =>
@@ -103,6 +155,21 @@ const ajustarZoom = (delta: number) =>
             </div>
 
             <div class="flex items-center gap-2">
+                <span v-if="erroPdf" class="text-xs text-destructive">
+                    PDF falhou: {{ erroPdf }}
+                </span>
+
+                <!-- gera do estado atual da tela, salvo ou não -->
+                <Button
+                    variant="outline"
+                    size="sm"
+                    :disabled="gerandoPdf"
+                    @click="baixarPdf"
+                >
+                    <Download />
+                    {{ gerandoPdf ? 'Gerando…' : 'Baixar PDF' }}
+                </Button>
+
                 <Button
                     variant="outline"
                     size="sm"
@@ -208,16 +275,15 @@ const ajustarZoom = (delta: number) =>
                 </div>
 
                 <div class="min-h-0 flex-1 overflow-auto bg-muted/40">
-                    <p
-                        v-if="editor.erro.value"
-                        class="m-4 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
-                    >
-                        Não foi possível renderizar o preview:
-                        {{ editor.erro.value }}
-                    </p>
-
+                    <!--
+                        Recebe a configuração, não HTML: os componentes do
+                        documento reagem direto ao estado do editor. É o
+                        mesmo documento que o Browsershot renderiza.
+                    -->
                     <PreviewFatura
-                        :paginas="editor.paginas.value"
+                        :paginas="editor.layout.value.paginas"
+                        :tema="editor.layout.value.tema"
+                        :dados="dados"
                         :selecionado="selecionado"
                         :zoom="zoom"
                         @medido="folhasPorPagina = $event"

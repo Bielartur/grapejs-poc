@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue';
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import DocumentoFatura from '@/components/fatura/documento/DocumentoFatura.vue';
+import type { BlocoLayout, Tema } from '@/composables/useLayoutFatura';
+import type { DadosFatura } from '@/types/fatura';
 
 /**
  * Uma página do layout, recortada em folhas A4 de verdade.
@@ -9,13 +12,16 @@ import { onBeforeUnmount, ref, watch } from 'vue';
  * Assim o preview nunca mostra uma página mais alta do que o papel: onde
  * o Chromium quebraria, aqui a folha acaba.
  *
- * O documento é o mesmo em todos os iframes — é sempre o HTML que o
- * Blade produziu. O componente não sabe nada sobre faturas: mede
- * retângulos, recorta e desenha marcações por cima.
+ * O documento é o mesmo em todas as folhas — os componentes de
+ * `documento/`, exatamente os que o Browsershot vai renderizar. Este
+ * componente não sabe nada sobre faturas: mede retângulos, recorta e
+ * desenha marcações por cima.
  */
 
 const props = defineProps<{
-    html: string;
+    blocos: BlocoLayout[];
+    tema: Tema;
+    dados: DadosFatura;
     /** 1-based, só para rotular. */
     numero: number;
     selecionado: string | null;
@@ -28,9 +34,9 @@ const emit = defineEmits<{
 }>();
 
 /**
- * A4 a 96dpi. O iframe é fixado nesta largura pro documento ser medido
- * na mesma caixa em que o Chromium vai paginar — medir numa largura
- * qualquer daria contagem de folhas errada.
+ * A4 a 96dpi. A largura é fixada pro documento ser medido na mesma caixa
+ * em que o Chromium vai paginar — medir noutra largura daria contagem de
+ * folhas errada.
  */
 const LARGURA_A4 = 794;
 const ALTURA_A4 = 1123;
@@ -46,14 +52,14 @@ const cortes = ref<number[]>([0]);
 
 const destaque = ref<{ topo: number; altura: number } | null>(null);
 
-let pendente: number | undefined;
-
 /**
- * Documento da primeira folha, guardado no `load` em vez de por
- * template ref: dentro de um `v-for` o ref viraria um array, e só a
- * primeira folha interessa — as outras são o mesmo documento.
+ * A primeira folha é quem mede. Ela é a única com deslocamento zero, o
+ * que faz o `offsetTop` dos elementos lá dentro já ser a posição no
+ * documento — nas outras viria somado ao deslocamento.
  */
-let referencia: Document | null = null;
+const raiz = ref<HTMLElement | null>(null);
+
+let observador: ResizeObserver | null = null;
 
 /**
  * Simula a paginação do Chromium sob `break-inside: avoid`.
@@ -66,8 +72,13 @@ let referencia: Document | null = null;
  * A exceção é um bloco mais alto que a folha inteira: aí não há para
  * onde empurrar e ele parte mesmo, em folhas cheias. O navegador faz
  * exatamente isso quando `break-inside: avoid` é impossível de honrar.
+ *
+ * Usa `offsetTop`/`offsetHeight`, não `getBoundingClientRect`: o zoom do
+ * editor aplica `transform: scale()`, que escala os rects mas não os
+ * valores de layout. Com rects, a contagem de folhas mudaria junto com o
+ * zoom.
  */
-function calcularCortes(doc: Document, total: number): number[] {
+function calcularCortes(raizEl: HTMLElement, total: number): number[] {
     /*
      * As unidades MAIS INTERNAS. Um bloco inteiro é marcado, mas os
      * grandes marcam pedaços por dentro (uma UC no histórico, a tabela
@@ -76,7 +87,7 @@ function calcularCortes(doc: Document, total: number): number[] {
      * justamente o caso que motivou a marcação fina.
      */
     const unidades = [
-        ...doc.querySelectorAll<HTMLElement>('[data-unidade]'),
+        ...raizEl.querySelectorAll<HTMLElement>('[data-unidade]'),
     ].filter((el) => !el.querySelector('[data-unidade]'));
 
     const inicios = [0];
@@ -97,8 +108,7 @@ function calcularCortes(doc: Document, total: number): number[] {
         }
 
         // mais alta que uma folha: não há para onde empurrar, então
-        // parte em folhas cheias — o navegador faz o mesmo quando
-        // `break-inside: avoid` é impossível de honrar
+        // parte em folhas cheias
         while (fim - ultimo() > ALTURA_A4) {
             inicios.push(ultimo() + ALTURA_A4);
         }
@@ -113,75 +123,60 @@ function calcularCortes(doc: Document, total: number): number[] {
 }
 
 function medir() {
-    const doc = referencia;
+    const el = raiz.value;
 
-    if (!doc?.body) {
+    if (!el) {
         return;
     }
 
-    // a altura do iframe não influencia isto: o corpo do documento não
-    // tem altura relativa, então `scrollHeight` é o conteúdo de fato
-    conteudo.value = doc.body.scrollHeight;
-    cortes.value = calcularCortes(doc, conteudo.value);
+    conteudo.value = el.offsetHeight;
+
+    const novos = calcularCortes(el, conteudo.value);
+
+    /*
+     * Só reatribui quando muda de verdade. Mais folhas mudam o DOM, o
+     * `ResizeObserver` reage e chamaria `medir()` de novo — sem esta
+     * comparação, isso seria um laço.
+     */
+    if (novos.join() !== cortes.value.join()) {
+        cortes.value = novos;
+    }
 
     emit('medido', cortes.value.length);
     posicionarDestaque();
 }
 
 /**
- * Localiza o bloco selecionado pelo `data-bloco` e lê a posição dele. É
- * o que dispensa replicar a marcação em componente Vue só pra conseguir
- * desenhar o contorno.
+ * Localiza o bloco selecionado pelo `data-bloco` e lê a posição dele.
+ * Continua por consulta ao DOM, e não por refs espalhados pelos nove
+ * componentes: o destaque é do editor, não do documento, e mantê-lo
+ * assim deixa os blocos sem saber que existe um editor.
  */
 function posicionarDestaque() {
-    const doc = referencia;
+    const el = raiz.value;
 
-    if (!doc || !props.selecionado) {
+    if (!el || !props.selecionado) {
         destaque.value = null;
 
         return;
     }
 
-    const el = doc.querySelector<HTMLElement>(
+    const alvo = el.querySelector<HTMLElement>(
         `[data-bloco="${props.selecionado}"]`,
     );
 
-    destaque.value = el
-        ? { topo: el.offsetTop, altura: el.offsetHeight }
+    destaque.value = alvo
+        ? { topo: alvo.offsetTop, altura: alvo.offsetHeight }
         : null;
 }
 
-/**
- * `folha` é 1-based. Só a primeira mede — as outras são o mesmo
- * documento deslocado e mediriam exatamente o mesmo valor.
- */
-function aoCarregar(evento: Event, folha: number) {
-    const doc = (evento.target as HTMLIFrameElement).contentDocument;
+/** Clicar no documento seleciona o bloco correspondente na lista. */
+function aoClicar(evento: MouseEvent) {
+    const alvo = (evento.target as HTMLElement | null)?.closest?.(
+        '[data-bloco]',
+    );
 
-    if (!doc) {
-        return;
-    }
-
-    // clicar no documento seleciona o bloco correspondente na lista;
-    // vale em qualquer folha, não só na primeira
-    doc.addEventListener('click', (clique) => {
-        const alvo = (clique.target as HTMLElement | null)?.closest?.(
-            '[data-bloco]',
-        );
-
-        emit('selecionar', alvo?.getAttribute('data-bloco') ?? null);
-    });
-
-    if (folha !== 1) {
-        return;
-    }
-
-    referencia = doc;
-    medir();
-
-    // fontes e imagens chegam depois do load e mudam a altura
-    window.clearTimeout(pendente);
-    pendente = window.setTimeout(medir, 400);
+    emit('selecionar', alvo?.getAttribute('data-bloco') ?? null);
 }
 
 /** Deslocamento do documento dentro da janela de uma folha (1-based). */
@@ -191,10 +186,9 @@ const deslocamento = (folha: number) => -cortes.value[folha - 1];
  * Altura visível de uma folha: até onde o próximo corte manda, nunca
  * até o fim do papel.
  *
- * Sem isto o trecho entre o corte e o fim da folha aparecia DUAS vezes —
- * no rodapé de uma folha e no topo da seguinte —, porque a janela tinha
- * sempre uma A4 de altura mesmo quando o corte vinha antes. O resto do
- * papel fica em branco, que é exatamente o que a quebra de página faz.
+ * Sem isto o trecho entre o corte e o fim da folha apareceria DUAS vezes
+ * — no rodapé de uma folha e no topo da seguinte. O resto do papel fica
+ * em branco, que é exatamente o que a quebra de página faz.
  */
 function alturaVisivel(folha: number): number {
     const inicio = cortes.value[folha - 1];
@@ -203,9 +197,35 @@ function alturaVisivel(folha: number): number {
     return Math.min(ALTURA_A4, fim - inicio);
 }
 
+/*
+ * O `ResizeObserver` substitui o `setTimeout(400)` da versão em iframe:
+ * fontes e imagens chegavam depois do `load` e mudavam a altura, e a
+ * espera fixa era um chute. Agora a medida refaz quando o documento
+ * muda de tamanho de verdade.
+ */
+watch(raiz, (el) => {
+    observador?.disconnect();
+
+    if (!el) {
+        return;
+    }
+
+    observador = new ResizeObserver(() => medir());
+    observador.observe(el);
+});
+
+// mudar bloco, opção ou tema muda o layout sem necessariamente mudar a
+// altura total — daí remedir também na mudança de props
+watch(
+    () => [props.blocos, props.tema, props.dados],
+    () => void nextTick(medir),
+    { deep: true },
+);
+
 watch(() => props.selecionado, posicionarDestaque);
 
-onBeforeUnmount(() => window.clearTimeout(pendente));
+onMounted(() => void nextTick(medir));
+onBeforeUnmount(() => observador?.disconnect());
 </script>
 
 <template>
@@ -235,17 +255,27 @@ onBeforeUnmount(() => window.clearTimeout(pendente));
                     class="relative overflow-hidden"
                     :style="{ height: `${alturaVisivel(folha)}px` }"
                 >
-                    <iframe
-                        :srcdoc="html"
-                        :title="`Página ${numero}, folha ${folha} da fatura`"
-                        scrolling="no"
-                        class="absolute left-0 w-full border-0"
+                    <div
+                        :ref="
+                            (el) => {
+                                if (folha === 1) {
+                                    raiz = el as HTMLElement | null;
+                                }
+                            }
+                        "
+                        class="absolute left-0"
                         :style="{
                             top: `${deslocamento(folha)}px`,
-                            height: `${Math.max(conteudo, ALTURA_A4)}px`,
+                            width: `${LARGURA_A4}px`,
                         }"
-                        @load="aoCarregar($event, folha)"
-                    />
+                        @click="aoClicar"
+                    >
+                        <DocumentoFatura
+                            :paginas="[blocos]"
+                            :tema="tema"
+                            :dados="dados"
+                        />
+                    </div>
                 </div>
 
                 <!-- camada de marcação: nada aqui entra no PDF -->

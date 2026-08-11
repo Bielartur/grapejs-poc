@@ -35,4 +35,16 @@ return [
         ],
     ],
 
+    /*
+     * Chromium usado pelo Browsershot para gerar o PDF da fatura.
+     *
+     * Vazio deixa o Puppeteer procurar no cache do usuário, o que
+     * depende do HOME de quem roda o processo. Em produção declare o
+     * caminho: o worker da fila costuma rodar com outro usuário, e a
+     * busca automática falha ali sem aviso útil.
+     */
+    'chrome' => [
+        'path' => env('CHROME_PATH'),
+    ],
+
 ];

@@ -8,12 +8,19 @@ namespace App\Fatura;
  * CATÁLOGO DE BLOCOS DA FATURA
  *
  * O contrato entre o editor e o renderizador. Cada entrada aqui tem um
- * partial Blade correspondente em `resources/views/fatura/blocos/`.
+ * componente Vue correspondente em
+ * `resources/js/components/fatura/documento/blocos/`, registrado no
+ * mapa do `DocumentoFatura`.
+ *
+ * O pareamento é afirmado por teste. O `@include` do Blade estourava
+ * sozinho quando o partial não existia; o `<component :is>` do Vue
+ * renderiza vazio e cala, então um bloco disponível sem componente
+ * sumiria do documento sem erro nenhum.
  *
  * O editor NÃO monta layout: ele escolhe quais destes blocos aparecem,
- * em que ordem e em qual página. É o que permite o partial continuar
- * usando `@foreach`, componentes Blade e geração de código de barras —
- * coisas que um editor visual de HTML não conseguiria representar.
+ * em que ordem e em qual página. É o que permite o componente continuar
+ * usando `v-for` aninhado e geração de código de barras — coisas que um
+ * editor visual de HTML não conseguiria representar.
  *
  * As opções são deliberadamente pobres: booleano e seleção entre
  * valores fixos. Qualquer coisa mais expressiva que isso vira liberdade

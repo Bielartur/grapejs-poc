@@ -1,14 +1,18 @@
-import { useDebounceFn } from '@vueuse/core';
-import { computed, ref, watch } from 'vue';
-import { preview, salvar } from '@/routes/fatura/layout';
+import { computed, ref } from 'vue';
+import { salvar } from '@/routes/fatura/layout';
 
 /**
  * O estado do editor de layout.
  *
- * Note o que NÃO tem aqui: nada que saiba desenhar uma fatura. O
- * documento é renderizado pelo Blade — o mesmo que geraria o PDF — e
- * chega como string de HTML. Este composable só manipula a configuração
- * e pede o preview de volta.
+ * Note o que NÃO tem mais aqui: o `fetch` de preview e o debounce de
+ * 250ms que o acompanhava. Enquanto o documento era Blade, cada toggle
+ * precisava de uma ida ao servidor pra devolver HTML; agora os
+ * componentes de `documento/` reagem direto a este estado e o preview
+ * é síncrono.
+ *
+ * Sobrou só o que sempre foi o miolo: manipular a configuração e
+ * persistir. É por isso que o editor nunca conseguiu emitir markup —
+ * ele só mexe em estrutura de dados.
  */
 
 export type DefinicaoOpcao =
@@ -67,13 +71,8 @@ export function useLayoutFatura(inicial: Layout) {
     const salvo = ref(JSON.stringify(inicial));
     const sujo = computed(() => JSON.stringify(layout.value) !== salvo.value);
 
-    /** Uma string de HTML por página do layout, na ordem. */
-    const paginas = ref<string[]>([]);
-    const carregando = ref(false);
-    const erro = ref<string | null>(null);
-
-    async function requisitar(url: string): Promise<Response> {
-        return fetch(url, {
+    async function persistir() {
+        const resposta = await fetch(salvar.url(), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -82,39 +81,6 @@ export function useLayoutFatura(inicial: Layout) {
             },
             body: JSON.stringify(layout.value),
         });
-    }
-
-    /**
-     * Debounce porque cada toggle dispara um render. 250ms é curto o
-     * bastante pra parecer imediato e longo o bastante pra arrastar um
-     * bloco não virar uma rajada de requisições.
-     */
-    const atualizarPreview = useDebounceFn(async () => {
-        carregando.value = true;
-        erro.value = null;
-
-        try {
-            const resposta = await requisitar(preview.url());
-
-            if (!resposta.ok) {
-                throw new Error(`HTTP ${resposta.status}`);
-            }
-
-            paginas.value = (await resposta.json()).paginas;
-        } catch (e) {
-            erro.value = e instanceof Error ? e.message : 'Falha ao renderizar';
-        } finally {
-            carregando.value = false;
-        }
-    }, 250);
-
-    watch(layout, () => void atualizarPreview(), {
-        deep: true,
-        immediate: true,
-    });
-
-    async function persistir() {
-        const resposta = await requisitar(salvar.url());
 
         if (resposta.ok) {
             salvo.value = JSON.stringify(layout.value);
@@ -171,10 +137,6 @@ export function useLayoutFatura(inicial: Layout) {
     return {
         layout,
         sujo,
-        paginas,
-        carregando,
-        erro,
-        atualizarPreview,
         persistir,
         descartar,
         alternarAtivo,
