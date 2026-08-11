@@ -1,15 +1,23 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import FolhaPreview from '@/components/fatura/FolhaPreview.vue';
+import type { BlocoLayout, Tema } from '@/composables/useLayoutFatura';
+import type { DadosFatura } from '@/types/fatura';
 
 /**
  * A pilha de páginas. Só orquestra: cada `FolhaPreview` cuida do próprio
- * iframe, e este componente junta as medidas pra reportar quantas folhas
- * o PDF terá no total.
+ * recorte em folhas, e este componente junta as medidas pra reportar
+ * quantas folhas o PDF terá no total.
+ *
+ * Recebe a configuração, não HTML. Antes chegava uma string por página,
+ * renderizada pelo Blade a cada alteração; agora os componentes do
+ * documento reagem direto ao estado do editor.
  */
 
 const props = defineProps<{
-    paginas: string[];
+    paginas: BlocoLayout[][];
+    tema: Tema;
+    dados: DadosFatura;
     selecionado: string | null;
     zoom: number;
 }>();
@@ -52,9 +60,11 @@ function registrar(indice: number, quantas: number) {
         >
             <div class="flex flex-col items-center gap-12">
                 <FolhaPreview
-                    v-for="(html, indice) in paginas"
+                    v-for="(blocos, indice) in paginas"
                     :key="indice"
-                    :html="html"
+                    :blocos="blocos"
+                    :tema="tema"
+                    :dados="dados"
                     :numero="indice + 1"
                     :selecionado="selecionado"
                     @medido="registrar(indice, $event)"

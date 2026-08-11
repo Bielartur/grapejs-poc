@@ -7,16 +7,22 @@ namespace App\Fatura;
 /**
  * O LAYOUT SALVO
  *
- * É isto que vai pro banco no lugar de HTML: ordem dos blocos, quais
- * estão ligados, as opções de cada um e um punhado de escolhas de
+ * É isto que vai pro banco no lugar de HTML: ordem dos blocos, QUAL
+ * variante cada um usa, as opções de cada um e um punhado de escolhas de
  * aparência. Trocar HTML por configuração é o que mantém o backend dono
  * da marcação — o editor nunca consegue emitir markup arbitrário.
  *
+ * `variante` substituiu o antigo booleano `ativo`: `null` quer dizer
+ * "sem nenhum", e qualquer outro valor é uma chave do catálogo. Ligar e
+ * desligar virou um caso particular de escolher forma, o que apagou o
+ * estado impossível "ligado, mas sem componente".
+ *
  * `daArray()` é a fronteira de confiança: tudo que vem do cliente é
  * reconstruído contra o catálogo. Bloco desconhecido é descartado,
- * opção desconhecida é ignorada, opção conhecida é convertida pro tipo
- * declarado. Um layout salvo antes de o catálogo mudar continua abrindo,
- * porque o que falta é preenchido com o padrão.
+ * variante desconhecida vira `null` (ou o padrão, se o bloco for
+ * obrigatório), opção desconhecida é ignorada, opção conhecida é
+ * convertida pro tipo declarado. Um layout salvo antes de o catálogo
+ * mudar continua abrindo, porque o que falta é preenchido com o padrão.
  */
 final class LayoutFatura
 {
@@ -40,7 +46,7 @@ final class LayoutFatura
     ];
 
     /**
-     * @param  list<list<array{id: string, ativo: bool, opcoes: array<string, mixed>}>>  $paginas
+     * @param  list<list<array{id: string, variante: string|null, opcoes: array<string, mixed>}>>  $paginas
      * @param  array{arredondamento: string, destaque: string, densidade: string}  $tema
      */
     public function __construct(
@@ -61,7 +67,7 @@ final class LayoutFatura
             array_values(array_map(
                 static fn (array $ids) => array_map(static fn (string $id) => [
                     'id' => $id,
-                    'ativo' => (bool) CatalogoBlocos::bloco($id)['disponivel'],
+                    'variante' => CatalogoBlocos::variantePadrao($id),
                     'opcoes' => CatalogoBlocos::opcoesPadrao($id),
                 ], $ids),
                 $paginas,
@@ -91,12 +97,9 @@ final class LayoutFatura
                     continue;
                 }
 
-                $definicao = CatalogoBlocos::bloco($id);
-
                 $pagina[] = [
                     'id' => $id,
-                    // um bloco indisponível nunca pode ser ligado pelo cliente
-                    'ativo' => $definicao['disponivel'] && (bool) ($bloco['ativo'] ?? false),
+                    'variante' => self::varianteSaneada($id, $bloco),
                     'opcoes' => self::opcoesSaneadas($id, $bloco['opcoes'] ?? []),
                 ];
             }
@@ -158,6 +161,44 @@ final class LayoutFatura
             'destaque_texto' => $destaqueTexto,
             'densidade' => $densidade,
         ];
+    }
+
+    /**
+     * A variante que o cliente pediu, se o catálogo a reconhecer.
+     *
+     * Um bloco sem variante nenhuma (o `grafico`) sempre volta `null` —
+     * é o que impede o cliente de ligar algo que não tem componente. Um
+     * bloco obrigatório nunca volta `null`: lixo ali vira o padrão, em
+     * vez de sumir uma seção que a fatura precisa ter.
+     *
+     * @param  array<string, mixed>  $bloco
+     */
+    private static function varianteSaneada(string $id, array $bloco): ?string
+    {
+        $variantes = CatalogoBlocos::variantes($id);
+
+        if ($variantes === []) {
+            return null;
+        }
+
+        $recebida = $bloco['variante'] ?? null;
+
+        if (is_string($recebida) && array_key_exists($recebida, $variantes)) {
+            return $recebida;
+        }
+
+        /*
+         * Compatibilidade com o layout salvo antes das variantes, quando
+         * o bloco só tinha `ativo`. Sem isto, o primeiro carregamento
+         * depois da mudança apagaria em silêncio tudo que estava ligado.
+         */
+        if ($recebida === null && array_key_exists('ativo', $bloco)) {
+            return $bloco['ativo'] ? CatalogoBlocos::variantePadrao($id) : null;
+        }
+
+        return CatalogoBlocos::bloco($id)['obrigatorio']
+            ? CatalogoBlocos::variantePadrao($id)
+            : null;
     }
 
     /**

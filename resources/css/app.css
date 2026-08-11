@@ -2,6 +2,11 @@
 
 @import 'tw-animate-css';
 
+/* Estilos do documento da fatura, escopados sob `.documento-fatura`.
+   O app carrega porque o preview em Vue renderiza o documento aqui
+   dentro, não mais só dentro de um iframe. */
+@import './documento.css';
+
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 

@@ -1,48 +1,32 @@
 <script setup lang="ts">
-import {
-    Barcode,
-    Building2,
-    ChevronDown,
-    FileText,
-    GripVertical,
-    History,
-    LineChart,
-    Paperclip,
-    QrCode,
-    Receipt,
-    Table,
-    User,
-} from '@lucide/vue';
-import type { Component as ComponenteVue } from '@lucide/vue';
+import { ChevronRight, GripVertical } from '@lucide/vue';
 import { ref } from 'vue';
-import ChaveBloco from '@/components/fatura/ChaveBloco.vue';
+import { iconeDoBloco } from '@/components/fatura/icones';
 import { Badge } from '@/components/ui/badge';
-import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import type {
     BlocoCatalogo,
     Layout,
     Posicao,
-    ValorOpcao,
 } from '@/composables/useLayoutFatura';
 
 /**
- * A lista de blocos. É aqui que mora TODA a interação do editor — o
- * preview ao lado é somente leitura, o que dispensa ter versão Vue da
- * fatura e mantém o Blade como fonte única da marcação.
+ * O PRIMEIRO NÍVEL DA SIDEBAR
+ *
+ * Aqui mora só a ESTRUTURA do documento: que blocos existem, em que
+ * ordem e em qual página. Escolher a forma de cada um é assunto da
+ * subpágina (`PainelVariantes`), aberta ao clicar na linha.
+ *
+ * Os interruptores saíram daqui. Ligar e desligar virou a escolha "sem
+ * nenhum" na lista de variantes, o que deixou esta lista com uma
+ * responsabilidade só — e cada linha passou a poder dizer QUAL forma
+ * está em uso, informação que o interruptor não tinha como dar.
  *
  * O arraste usa a API nativa do HTML5, sem biblioteca: são poucas
  * dezenas de itens numa lista vertical, e o `dataTransfer` só precisa
  * carregar a posição de origem.
  */
 
-const props = defineProps<{
+defineProps<{
     layout: Layout;
     catalogo: Record<string, BlocoCatalogo>;
     /** Quantas folhas de PDF cada página ocupa, medido no preview. */
@@ -51,33 +35,13 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-    alternarAtivo: [pos: Posicao];
-    definirOpcao: [pos: Posicao, chave: string, valor: ValorOpcao];
+    abrir: [pos: Posicao];
     mover: [de: Posicao, para: Posicao];
     novaPagina: [de: Posicao];
-    selecionar: [id: string | null];
 }>();
 
-const ICONES: Record<string, ComponenteVue> = {
-    building: Building2,
-    user: User,
-    receipt: Receipt,
-    'qr-code': QrCode,
-    barcode: Barcode,
-    'file-text': FileText,
-    'line-chart': LineChart,
-    table: Table,
-    history: History,
-    paperclip: Paperclip,
-};
-
-const expandido = ref<string | null>(null);
 const arrastando = ref<Posicao | null>(null);
 const alvo = ref<Posicao | null>(null);
-
-function alternarExpansao(id: string) {
-    expandido.value = expandido.value === id ? null : id;
-}
 
 function iniciarArraste(evento: DragEvent, pos: Posicao) {
     arrastando.value = pos;
@@ -118,8 +82,17 @@ function soltar() {
 const ehAlvo = (pagina: number, indice: number) =>
     alvo.value?.pagina === pagina && alvo.value?.indice === indice;
 
-function opcoesDo(id: string) {
-    return Object.entries(props.catalogo[id]?.opcoes ?? {});
+/** O que a linha diz embaixo do nome: a forma em uso, ou que não há. */
+function resumo(definicao: BlocoCatalogo | undefined, variante: string | null) {
+    if (!definicao) {
+        return '';
+    }
+
+    if (!variante) {
+        return definicao.rotulo_vazio ?? `Sem nenhum ${definicao.rotulo}`;
+    }
+
+    return definicao.variantes[variante]?.rotulo ?? variante;
 }
 </script>
 
@@ -128,8 +101,8 @@ function opcoesDo(id: string) {
         <div>
             <h2 class="text-sm font-semibold">Blocos da fatura</h2>
             <p class="text-xs leading-relaxed text-muted-foreground">
-                Arraste pela alça para reordenar — inclusive de uma página para
-                outra.
+                Clique em um bloco para escolher o componente. Arraste pela alça
+                para reordenar — inclusive de uma página para outra.
             </p>
         </div>
 
@@ -165,7 +138,9 @@ function opcoesDo(id: string) {
                         ? 'border-primary ring-1 ring-primary'
                         : 'border-border',
                     ehAlvo(pagina, indice) ? 'border-t-2 border-t-primary' : '',
-                    !catalogo[bloco.id]?.disponivel ? 'opacity-60' : '',
+                    // sem variante o bloco não sai no PDF: a linha fica
+                    // apagada, do mesmo jeito que um bloco indisponível
+                    !bloco.variante ? 'opacity-60' : '',
                 ]"
                 @dragover="sobrepor($event, { pagina, indice })"
                 @drop.prevent="soltar"
@@ -182,119 +157,39 @@ function opcoesDo(id: string) {
                     </button>
 
                     <component
-                        :is="ICONES[catalogo[bloco.id]?.icone] ?? FileText"
+                        :is="iconeDoBloco(catalogo[bloco.id]?.icone)"
                         class="size-4 shrink-0 text-muted-foreground"
                     />
 
                     <button
                         type="button"
-                        class="min-w-0 flex-1 text-left"
-                        @click="
-                            emit(
-                                'selecionar',
-                                selecionado === bloco.id ? null : bloco.id,
-                            )
-                        "
+                        class="flex min-w-0 flex-1 items-center gap-2 text-left"
+                        @click="emit('abrir', { pagina, indice })"
                     >
-                        <span class="flex items-center gap-1.5">
-                            <span class="text-sm font-medium">
-                                {{ catalogo[bloco.id]?.rotulo ?? bloco.id }}
-                            </span>
-                            <Badge
-                                v-if="!catalogo[bloco.id]?.disponivel"
-                                variant="secondary"
-                                class="px-1.5 py-0 text-[10px]"
-                            >
-                                Em breve
-                            </Badge>
-                        </span>
-                        <span
-                            class="block text-xs leading-snug text-muted-foreground"
-                        >
-                            {{ catalogo[bloco.id]?.descricao }}
-                        </span>
-                    </button>
-
-                    <ChaveBloco
-                        :model-value="bloco.ativo"
-                        :desabilitado="!catalogo[bloco.id]?.disponivel"
-                        :rotulo="`Exibir ${catalogo[bloco.id]?.rotulo}`"
-                        @update:model-value="
-                            emit('alternarAtivo', { pagina, indice })
-                        "
-                    />
-
-                    <button
-                        v-if="opcoesDo(bloco.id).length"
-                        type="button"
-                        class="text-muted-foreground transition-transform"
-                        :class="expandido === bloco.id ? 'rotate-180' : ''"
-                        aria-label="Opções do bloco"
-                        @click="alternarExpansao(bloco.id)"
-                    >
-                        <ChevronDown class="size-4" />
-                    </button>
-                </div>
-
-                <div
-                    v-if="expandido === bloco.id && opcoesDo(bloco.id).length"
-                    class="flex flex-col gap-2.5 border-t bg-muted/30 px-3 py-2.5"
-                >
-                    <p
-                        class="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase"
-                    >
-                        Opções do bloco
-                    </p>
-
-                    <div
-                        v-for="[chave, definicao] in opcoesDo(bloco.id)"
-                        :key="chave"
-                        class="flex items-center justify-between gap-3"
-                    >
-                        <Label class="text-xs font-normal">{{
-                            definicao.rotulo
-                        }}</Label>
-
-                        <ChaveBloco
-                            v-if="definicao.tipo === 'bool'"
-                            :model-value="Boolean(bloco.opcoes[chave])"
-                            :rotulo="definicao.rotulo"
-                            @update:model-value="
-                                emit(
-                                    'definirOpcao',
-                                    { pagina, indice },
-                                    chave,
-                                    $event,
-                                )
-                            "
-                        />
-
-                        <Select
-                            v-else
-                            :model-value="String(bloco.opcoes[chave])"
-                            @update:model-value="
-                                emit(
-                                    'definirOpcao',
-                                    { pagina, indice },
-                                    chave,
-                                    String($event),
-                                )
-                            "
-                        >
-                            <SelectTrigger class="h-7 w-40 text-xs">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="(rotulo, valor) in definicao.valores"
-                                    :key="valor"
-                                    :value="String(valor)"
+                        <span class="min-w-0 flex-1">
+                            <span class="flex items-center gap-1.5">
+                                <span class="text-sm font-medium">
+                                    {{ catalogo[bloco.id]?.rotulo ?? bloco.id }}
+                                </span>
+                                <Badge
+                                    v-if="!catalogo[bloco.id]?.disponivel"
+                                    variant="secondary"
+                                    class="px-1.5 py-0 text-[10px]"
                                 >
-                                    {{ rotulo }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                                    Em breve
+                                </Badge>
+                            </span>
+                            <span
+                                class="block truncate text-xs leading-snug text-muted-foreground"
+                            >
+                                {{ resumo(catalogo[bloco.id], bloco.variante) }}
+                            </span>
+                        </span>
+
+                        <ChevronRight
+                            class="size-4 shrink-0 text-muted-foreground"
+                        />
+                    </button>
                 </div>
             </div>
 

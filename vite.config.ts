@@ -11,14 +11,21 @@ export default defineConfig({
         laravel({
             input: [
                 'resources/css/app.css',
-                // CSS do documento da fatura: carregado pela casca do
-                // preview e pela de geração do PDF, nunca pelo app
-                'resources/css/fatura.css',
                 'resources/js/app.ts',
+                // Entry próprio do documento: a página que o Browsershot
+                // abre monta só a fatura, sem o Inertia nem o editor.
+                'resources/js/documento.ts',
             ],
             refresh: true,
             fonts: [
                 bunny('Instrument Sans', {
+                    weights: [400, 500, 600],
+                }),
+                // Fonte do documento (`.boleto-text`). Auto-hospedada de
+                // propósito: vinha de CDN e, numa geração de PDF, fonte
+                // que chega tarde muda a altura do texto — e altura muda
+                // onde a folha quebra.
+                bunny('Figtree', {
                     weights: [400, 500, 600],
                 }),
             ],
