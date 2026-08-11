@@ -24,11 +24,21 @@ export type DefinicaoOpcao =
           valores: Record<string, string>;
       };
 
+export type VarianteCatalogo = {
+    rotulo: string;
+    descricao: string;
+};
+
 export type BlocoCatalogo = {
     rotulo: string;
     descricao: string;
     icone: string;
     disponivel: boolean;
+    /** Obrigatório não oferece a escolha "sem nenhum". */
+    obrigatorio: boolean;
+    /** Rótulo do cartão vazio; só existe em bloco opcional. */
+    rotulo_vazio?: string;
+    variantes: Record<string, VarianteCatalogo>;
     opcoes: Record<string, DefinicaoOpcao>;
 };
 
@@ -36,7 +46,8 @@ export type ValorOpcao = boolean | string;
 
 export type BlocoLayout = {
     id: string;
-    ativo: boolean;
+    /** Chave da variante escolhida; `null` é "sem nenhum". */
+    variante: string | null;
     opcoes: Record<string, ValorOpcao>;
 };
 
@@ -95,9 +106,9 @@ export function useLayoutFatura(inicial: Layout) {
 
     // --- manipulação da configuração ---
 
-    function alternarAtivo(pos: Posicao) {
-        const bloco = layout.value.paginas[pos.pagina][pos.indice];
-        bloco.ativo = !bloco.ativo;
+    /** `null` esconde o bloco — é o que sobrou do antigo interruptor. */
+    function definirVariante(pos: Posicao, variante: string | null) {
+        layout.value.paginas[pos.pagina][pos.indice].variante = variante;
     }
 
     function definirOpcao(pos: Posicao, chave: string, valor: ValorOpcao) {
@@ -139,7 +150,7 @@ export function useLayoutFatura(inicial: Layout) {
         sujo,
         persistir,
         descartar,
-        alternarAtivo,
+        definirVariante,
         definirOpcao,
         mover,
         novaPagina,

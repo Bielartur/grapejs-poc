@@ -1,29 +1,30 @@
 <script setup lang="ts">
 /**
- * O BLOCO QUE AINDA NÃO EXISTE EM VUE
+ * A VARIANTE QUE AINDA NÃO EXISTE EM VUE
  *
- * Durante as Fases 1 e 2 este componente é carga estrutural, não
- * enfeite: a maior parte dos blocos ainda mora no Blade, e um buraco
- * silencioso faria a comparação entre as duas engines MENTIR — o
- * documento em Vue pareceria quase igual só porque o que falta some sem
- * deixar rastro.
+ * O `<component :is>` renderiza vazio e cala quando o mapa não tem a
+ * chave: uma variante declarada no catálogo sem componente registrado em
+ * `documento/componentes.ts` não quebraria nada — a seção só sumiria do
+ * documento, em silêncio, e ninguém perceberia até um cliente reclamar
+ * de fatura sem cabeçalho.
  *
- * Terminada a migração ele continua, como guarda: um id que o
- * `CatalogoBlocos` conhece mas que não tem componente registrado aparece
- * aqui em vez de virar espaço em branco.
+ * O teste de pareamento impede que isso chegue em produção; este
+ * componente é o que torna o buraco visível enquanto se desenvolve.
  */
 
-defineProps<{ idBloco: string }>();
+defineProps<{ idBloco: string; variante: string }>();
 </script>
 
 <template>
     <div
         class="flex items-center gap-3 border border-dashed border-amber-400 bg-amber-50 px-4 py-3 text-amber-900"
     >
-        <span class="font-mono text-xs font-semibold">{{ idBloco }}</span>
+        <span class="font-mono text-xs font-semibold">
+            {{ idBloco }}/{{ variante }}
+        </span>
         <span class="text-xs">
-            ainda não tem componente Vue — este bloco só renderiza no preview em
-            Blade.
+            está no catálogo mas não tem componente Vue registrado em
+            <code>documento/componentes.ts</code>.
         </span>
     </div>
 </template>

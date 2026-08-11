@@ -3,6 +3,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import { Download, Lock, Minus, Plus, Save, Undo2, X } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import ListaBlocos from '@/components/fatura/ListaBlocos.vue';
+import PainelVariantes from '@/components/fatura/PainelVariantes.vue';
 import PreviewFatura from '@/components/fatura/PreviewFatura.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import { useLayoutFatura } from '@/composables/useLayoutFatura';
 import type {
     BlocoCatalogo,
     Layout,
+    Posicao,
     Tema,
 } from '@/composables/useLayoutFatura';
 import { dashboard } from '@/routes';
@@ -27,8 +29,14 @@ import type { DadosFatura } from '@/types/fatura';
 /**
  * EDITOR DE LAYOUT DA FATURA
  *
- * O usuário escolhe QUAIS blocos entram e em que ordem — nunca monta
- * layout livre.
+ * O usuário escolhe QUAIS blocos entram, em que ordem e com QUAL forma —
+ * nunca monta layout livre.
+ *
+ * A sidebar tem dois níveis. O primeiro é a estrutura do documento
+ * (`ListaBlocos`); clicar num bloco abre o segundo (`PainelVariantes`),
+ * onde as formas daquele bloco aparecem renderizadas de verdade. Esta
+ * página é quem guarda em qual dos dois se está — os painéis não sabem
+ * um do outro.
  *
  * O documento é renderizado pelos componentes de `fatura/documento/`, os
  * MESMOS que o Browsershot abre pra gerar o PDF. Por isso o preview não
@@ -47,6 +55,24 @@ const props = defineProps<{
 
 const editor = useLayoutFatura(props.layout);
 
+/**
+ * Qual bloco está aberto na subpágina — `null` é o primeiro nível.
+ *
+ * Guarda a POSIÇÃO, não o id, porque é posição o que os comandos do
+ * editor (`definirVariante`, `definirOpcao`) recebem. O bloco em si sai
+ * daí por `blocoAberto`, sempre lido do estado atual: assim editar
+ * enquanto a subpágina está aberta não deixa uma cópia velha na tela.
+ */
+const abertoEm = ref<Posicao | null>(null);
+
+const blocoAberto = computed(() =>
+    abertoEm.value
+        ? (editor.layout.value.paginas[abertoEm.value.pagina]?.[
+              abertoEm.value.indice
+          ] ?? null)
+        : null,
+);
+
 const selecionado = ref<string | null>(null);
 const folhasPorPagina = ref<number[]>([]);
 const zoom = ref(1);
@@ -57,6 +83,41 @@ const erroPdf = ref<string | null>(null);
 const totalFolhas = computed(() =>
     folhasPorPagina.value.reduce((soma, n) => soma + n, 0),
 );
+
+/** Abrir a subpágina também destaca o bloco no preview. */
+function abrir(pos: Posicao) {
+    abertoEm.value = pos;
+    selecionado.value =
+        editor.layout.value.paginas[pos.pagina]?.[pos.indice]?.id ?? null;
+}
+
+function fechar() {
+    abertoEm.value = null;
+    selecionado.value = null;
+}
+
+/**
+ * Clicar no documento abre a subpágina daquele bloco.
+ *
+ * A busca é por id porque é só isso que o preview sabe — ele lê o
+ * `data-bloco` do DOM. Funciona porque cada bloco do catálogo aparece no
+ * máximo uma vez no layout.
+ */
+function abrirPorId(id: string | null) {
+    if (!id) {
+        fechar();
+
+        return;
+    }
+
+    editor.layout.value.paginas.forEach((blocos, pagina) => {
+        const indice = blocos.findIndex((b) => b.id === id);
+
+        if (indice >= 0) {
+            abrir({ pagina, indice });
+        }
+    });
+}
 
 async function salvar() {
     salvando.value = true;
@@ -189,55 +250,79 @@ const ajustarZoom = (delta: number) =>
         </header>
 
         <div class="flex min-h-0 flex-1">
+            <!--
+                Os dois níveis se substituem no mesmo espaço, em vez de
+                empilhar: a subpágina precisa da largura inteira pros
+                cartões de esquema caberem sem espremer.
+            -->
             <aside class="w-96 shrink-0 overflow-y-auto border-r p-4">
-                <ListaBlocos
-                    :layout="editor.layout.value"
-                    :catalogo="catalogo"
-                    :folhas-por-pagina="folhasPorPagina"
-                    :selecionado="selecionado"
-                    @alternar-ativo="editor.alternarAtivo"
-                    @definir-opcao="editor.definirOpcao"
-                    @mover="editor.mover"
-                    @nova-pagina="editor.novaPagina"
-                    @selecionar="selecionado = $event"
+                <PainelVariantes
+                    v-if="blocoAberto"
+                    :bloco="blocoAberto"
+                    :definicao="catalogo[blocoAberto.id]"
+                    @voltar="fechar"
+                    @definir-variante="
+                        abertoEm && editor.definirVariante(abertoEm, $event)
+                    "
+                    @definir-opcao="
+                        (chave, valor) =>
+                            abertoEm &&
+                            editor.definirOpcao(abertoEm, chave, valor)
+                    "
                 />
 
-                <section class="mt-6 flex flex-col gap-3 border-t pt-4">
-                    <h2 class="text-sm font-semibold">Aparência</h2>
-                    <p class="text-xs leading-relaxed text-muted-foreground">
-                        Ajustes sutis que valem para o documento inteiro. Não há
-                        controle de posição ou tamanho — isso é do bloco.
-                    </p>
+                <template v-else>
+                    <ListaBlocos
+                        :layout="editor.layout.value"
+                        :catalogo="catalogo"
+                        :folhas-por-pagina="folhasPorPagina"
+                        :selecionado="selecionado"
+                        @abrir="abrir"
+                        @mover="editor.mover"
+                        @nova-pagina="editor.novaPagina"
+                    />
 
-                    <div
-                        v-for="(valores, chave) in temaOpcoes"
-                        :key="chave"
-                        class="flex items-center justify-between gap-3"
-                    >
-                        <Label class="text-xs font-normal capitalize">{{
-                            chave
-                        }}</Label>
-                        <Select
-                            :model-value="editor.layout.value.tema[chave]"
-                            @update:model-value="
-                                editor.layout.value.tema[chave] = String($event)
-                            "
+                    <section class="mt-6 flex flex-col gap-3 border-t pt-4">
+                        <h2 class="text-sm font-semibold">Aparência</h2>
+                        <p
+                            class="text-xs leading-relaxed text-muted-foreground"
                         >
-                            <SelectTrigger class="h-7 w-40 text-xs">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="(rotulo, valor) in valores"
-                                    :key="valor"
-                                    :value="String(valor)"
-                                >
-                                    {{ rotulo }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </section>
+                            Ajustes sutis que valem para o documento inteiro.
+                            Não há controle de posição ou tamanho — isso é do
+                            bloco.
+                        </p>
+
+                        <div
+                            v-for="(valores, chave) in temaOpcoes"
+                            :key="chave"
+                            class="flex items-center justify-between gap-3"
+                        >
+                            <Label class="text-xs font-normal capitalize">{{
+                                chave
+                            }}</Label>
+                            <Select
+                                :model-value="editor.layout.value.tema[chave]"
+                                @update:model-value="
+                                    editor.layout.value.tema[chave] =
+                                        String($event)
+                                "
+                            >
+                                <SelectTrigger class="h-7 w-40 text-xs">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem
+                                        v-for="(rotulo, valor) in valores"
+                                        :key="valor"
+                                        :value="String(valor)"
+                                    >
+                                        {{ rotulo }}
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </section>
+                </template>
             </aside>
 
             <main class="flex min-w-0 flex-1 flex-col">
@@ -287,7 +372,7 @@ const ajustarZoom = (delta: number) =>
                         :selecionado="selecionado"
                         :zoom="zoom"
                         @medido="folhasPorPagina = $event"
-                        @selecionar="selecionado = $event"
+                        @selecionar="abrirPorId"
                     />
                 </div>
             </main>

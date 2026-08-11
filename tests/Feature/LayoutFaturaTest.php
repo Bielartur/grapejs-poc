@@ -73,8 +73,8 @@ class LayoutFaturaTest extends TestCase
     {
         $layout = LayoutFatura::daArray([
             'paginas' => [[
-                ['id' => 'cabecalho', 'ativo' => true, 'opcoes' => []],
-                ['id' => '../../../etc/passwd', 'ativo' => true],
+                ['id' => 'cabecalho', 'variante' => 'padrao', 'opcoes' => []],
+                ['id' => '../../../etc/passwd', 'variante' => 'padrao'],
             ]],
         ]);
 
@@ -85,10 +85,56 @@ class LayoutFaturaTest extends TestCase
     public function test_bloco_indisponivel_nao_pode_ser_ligado_pelo_cliente(): void
     {
         $layout = LayoutFatura::daArray([
-            'paginas' => [[['id' => 'grafico', 'ativo' => true, 'opcoes' => []]]],
+            'paginas' => [[['id' => 'grafico', 'variante' => 'padrao', 'opcoes' => []]]],
         ]);
 
-        $this->assertFalse($layout->paginas[0][0]['ativo']);
+        $this->assertNull($layout->paginas[0][0]['variante']);
+    }
+
+    /**
+     * Uma variante inventada não pode virar `<component :is>` de nada —
+     * e num bloco opcional o resultado é o bloco não sair, que é o
+     * estado seguro.
+     */
+    public function test_variante_desconhecida_vira_sem_nenhum(): void
+    {
+        $layout = LayoutFatura::daArray([
+            'paginas' => [[['id' => 'pix', 'variante' => 'inexistente', 'opcoes' => []]]],
+        ]);
+
+        $this->assertNull($layout->paginas[0][0]['variante']);
+    }
+
+    /**
+     * O bloco obrigatório não tem cartão "sem nenhum" na interface, então
+     * `null` ali só pode vir de payload adulterado ou de layout velho —
+     * e uma fatura sem resumo de consumo não é uma fatura.
+     */
+    public function test_bloco_obrigatorio_sem_variante_cai_no_padrao(): void
+    {
+        $layout = LayoutFatura::daArray([
+            'paginas' => [[['id' => 'resumo_consumo', 'variante' => null, 'opcoes' => []]]],
+        ]);
+
+        $this->assertSame('padrao', $layout->paginas[0][0]['variante']);
+    }
+
+    /**
+     * O layout salvo antes das variantes só tinha `ativo`. Sem esta
+     * ponte, o primeiro carregamento depois da mudança apagaria em
+     * silêncio tudo que estava ligado.
+     */
+    public function test_layout_antigo_com_ativo_vira_a_variante_padrao(): void
+    {
+        $layout = LayoutFatura::daArray([
+            'paginas' => [[
+                ['id' => 'boleto', 'ativo' => true, 'opcoes' => []],
+                ['id' => 'pix', 'ativo' => false, 'opcoes' => []],
+            ]],
+        ]);
+
+        $this->assertSame('padrao', $layout->paginas[0][0]['variante']);
+        $this->assertNull($layout->paginas[0][1]['variante']);
     }
 
     public function test_opcao_invalida_cai_no_padrao_do_catalogo(): void
@@ -96,7 +142,7 @@ class LayoutFaturaTest extends TestCase
         $layout = LayoutFatura::daArray([
             'paginas' => [[[
                 'id' => 'historico_consumo',
-                'ativo' => true,
+                'variante' => 'padrao',
                 'opcoes' => ['meses' => '999', 'inexistente' => 'x'],
             ]]],
         ]);
@@ -110,13 +156,14 @@ class LayoutFaturaTest extends TestCase
     public function test_salvar_e_recarregar_preserva_o_layout(): void
     {
         $this->postJson(route('fatura.layout.salvar'), [
-            'paginas' => [[['id' => 'boleto', 'ativo' => true, 'opcoes' => ['mostrar_instrucoes' => false]]]],
+            'paginas' => [[['id' => 'boleto', 'variante' => 'padrao', 'opcoes' => ['mostrar_instrucoes' => false]]]],
             'tema' => ['arredondamento' => 'lg', 'destaque' => 'emerald', 'densidade' => 'confortavel'],
         ])->assertNoContent();
 
         $layout = RepositorioLayout::carregar();
 
         $this->assertSame('boleto', $layout->paginas[0][0]['id']);
+        $this->assertSame('padrao', $layout->paginas[0][0]['variante']);
         $this->assertFalse($layout->paginas[0][0]['opcoes']['mostrar_instrucoes']);
         $this->assertSame('rounded-lg', $layout->classes()['arredondamento']);
     }
@@ -124,41 +171,141 @@ class LayoutFaturaTest extends TestCase
     /**
      * O PAREAMENTO CATÁLOGO ↔ COMPONENTE
      *
-     * Um id que o catálogo declara disponível mas que não tem componente
-     * registrado no `DocumentoFatura` não quebra nada: o bloco só some
-     * do documento, em silêncio, e ninguém percebe até um cliente
-     * reclamar de fatura sem cabeçalho. É o risco que a troca de engine
-     * introduziu, e é o que este teste trava.
+     * Uma variante que o catálogo declara mas que não tem componente
+     * registrado em `documento/componentes.ts` não quebra nada: o bloco
+     * só some do documento, em silêncio, e ninguém percebe até um
+     * cliente reclamar de fatura sem cabeçalho. É o risco que a troca de
+     * engine introduziu, e é o que este teste trava.
+     *
+     * Com variantes, o buraco ganhou um segundo nível: o bloco pode
+     * existir no mapa e a forma escolhida, não. Daí comparar o par
+     * `bloco/variante` inteiro, e não só os ids.
      */
-    public function test_todo_bloco_disponivel_tem_componente_vue(): void
+    public function test_toda_variante_do_catalogo_tem_componente_vue(): void
     {
         $fonte = (string) file_get_contents(
-            resource_path('js/components/fatura/documento/DocumentoFatura.vue'),
+            resource_path('js/components/fatura/documento/componentes.ts'),
         );
 
         $this->assertSame(
             1,
-            preg_match('/const COMPONENTES[^{]*\{(.*?)\n\};/s', $fonte, $bloco),
+            preg_match('/export const COMPONENTES[^{]*\{(.*?)\n\};/s', $fonte, $mapa),
             'Não achei o mapa COMPONENTES — o formato do arquivo mudou.',
         );
 
-        preg_match_all('/^\s{4}(\w+):/m', $bloco[1], $encontrados);
-        $registrados = $encontrados[1];
+        // bloco no primeiro nível de indentação, variantes no segundo
+        preg_match_all(
+            '/^ {4}(\w+): \{(.*?)^ {4}\},/ms',
+            $mapa[1],
+            $blocos,
+            PREG_SET_ORDER,
+        );
 
-        $disponiveis = array_keys(array_filter(
-            CatalogoBlocos::todos(),
-            static fn (array $b): bool => (bool) $b['disponivel'],
-        ));
+        $registrados = [];
+
+        foreach ($blocos as [, $id, $corpo]) {
+            preg_match_all('/^ {8}(\w+):/m', $corpo, $variantes);
+
+            foreach ($variantes[1] as $variante) {
+                $registrados[] = "{$id}/{$variante}";
+            }
+        }
+
+        $declarados = [];
+
+        foreach (CatalogoBlocos::todos() as $id => $bloco) {
+            foreach (array_keys($bloco['variantes']) as $variante) {
+                $declarados[] = "{$id}/{$variante}";
+            }
+        }
 
         sort($registrados);
-        sort($disponiveis);
+        sort($declarados);
 
         $this->assertSame(
-            $disponiveis,
+            $declarados,
             $registrados,
-            'Catálogo e componentes Vue divergiram: um bloco disponível sem '
+            'Catálogo e componentes Vue divergiram: uma variante declarada sem '
             .'componente some do documento sem erro nenhum.',
         );
+    }
+
+    /**
+     * O cartão da sidebar desenha a SILHUETA da variante, e o desenho é
+     * escrito à mão em `esquemas.ts`. Sem desenho o cartão vira uma
+     * caixa vazia — o usuário perde exatamente a informação que a
+     * subpágina existe pra dar.
+     */
+    public function test_toda_variante_do_catalogo_tem_esquema_desenhado(): void
+    {
+        $fonte = (string) file_get_contents(
+            resource_path('js/components/fatura/esquemas.ts'),
+        );
+
+        $this->assertSame(
+            1,
+            preg_match('/const ESQUEMAS[^{]*\{(.*)\n\};/s', $fonte, $mapa),
+            'Não achei o mapa ESQUEMAS — o formato do arquivo mudou.',
+        );
+
+        preg_match_all("/^ {4}'([\w\/]+)':/m", $mapa[1], $encontrados);
+        $desenhadas = $encontrados[1];
+
+        $declaradas = [];
+
+        foreach (CatalogoBlocos::todos() as $id => $bloco) {
+            foreach (array_keys($bloco['variantes']) as $variante) {
+                $declaradas[] = "{$id}/{$variante}";
+            }
+        }
+
+        sort($desenhadas);
+        sort($declaradas);
+
+        $this->assertSame(
+            $declaradas,
+            $desenhadas,
+            'Catálogo e esquemas divergiram: uma variante sem desenho aparece '
+            .'na sidebar como um cartão vazio.',
+        );
+    }
+
+    /**
+     * Um bloco disponível sem variante nenhuma não teria o que mostrar
+     * na subpágina da sidebar, e um indisponível com variante seria
+     * escolhível sem ter componente. As duas coisas são o mesmo engano
+     * escrito de dois jeitos.
+     */
+    public function test_disponibilidade_e_variantes_concordam(): void
+    {
+        foreach (CatalogoBlocos::todos() as $id => $bloco) {
+            $this->assertSame(
+                $bloco['disponivel'],
+                $bloco['variantes'] !== [],
+                "O bloco '{$id}' declara disponibilidade que não bate com as variantes que tem.",
+            );
+        }
+    }
+
+    /**
+     * Bloco obrigatório não mostra o cartão "sem nenhum", então o rótulo
+     * dele nunca aparece — mas todo bloco opcional depende de um que
+     * caiba na frase, e o genérico ("Sem nenhum Anexos da
+     * concessionária") não cabe.
+     */
+    public function test_todo_bloco_opcional_declara_o_rotulo_do_cartao_vazio(): void
+    {
+        foreach (CatalogoBlocos::todos() as $id => $bloco) {
+            if ($bloco['obrigatorio']) {
+                continue;
+            }
+
+            $this->assertArrayHasKey(
+                'rotulo_vazio',
+                $bloco,
+                "O bloco opcional '{$id}' precisa de um 'rotulo_vazio'.",
+            );
+        }
     }
 
     /**
