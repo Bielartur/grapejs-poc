@@ -19,12 +19,13 @@ const props = defineProps<{
     tema: Tema;
     dados: DadosFatura;
     selecionado: string | null;
+    elementoSelecionado: string | null;
     zoom: number;
 }>();
 
 const emit = defineEmits<{
     medido: [folhasPorPagina: number[]];
-    selecionar: [id: string | null];
+    selecionar: [id: string | null, elemento: string | null];
 }>();
 
 const folhas = ref<number[]>([]);
@@ -67,8 +68,11 @@ function registrar(indice: number, quantas: number) {
                     :dados="dados"
                     :numero="indice + 1"
                     :selecionado="selecionado"
+                    :elemento-selecionado="elementoSelecionado"
                     @medido="registrar(indice, $event)"
-                    @selecionar="emit('selecionar', $event)"
+                    @selecionar="
+                        (id, elemento) => emit('selecionar', id, elemento)
+                    "
                 />
             </div>
         </div>

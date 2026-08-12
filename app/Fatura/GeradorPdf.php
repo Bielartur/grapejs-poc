@@ -49,6 +49,21 @@ final class GeradorPdf
              * namespaces de sandbox disponíveis em container/WSL.
              */
             ->noSandbox()
+            /*
+             * Headless novo (o do próprio Chrome), não o binário
+             * `chrome-headless-shell`.
+             *
+             * Sem isto o Browsershot pede `headless: 'shell'` ao
+             * Puppeteer, que procura um SEGUNDO download — o
+             * `chrome-headless-shell` — que o `puppeteer browsers
+             * install chrome` não traz. O erro que aparece é "Could not
+             * find Chrome", apontando para o Chrome que ESTÁ instalado,
+             * o que manda pra pista errada.
+             *
+             * O headless antigo também é o legado: recebe menos do
+             * motor de impressão do Chrome.
+             */
+            ->newHeadless()
             ->format('A4')
             // as margens já estão no layout das páginas
             ->margins(0, 0, 0, 0)

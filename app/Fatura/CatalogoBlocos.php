@@ -31,6 +31,14 @@ namespace App\Fatura;
  * As opções seguem deliberadamente pobres: booleano e seleção entre
  * valores fixos. Elas valem para o bloco, não para a variante — cada
  * componente honra as que fazem sentido nele e ignora o resto.
+ *
+ * `elementos` é a terceira camada: cada bloco declara quais PAPÉIS
+ * (`EstilosBloco::PAPEIS`) ele tem e como chamá-los na tela. É o que dá
+ * ao usuário mexer em borda, tamanho, peso e cor sem abrir a porta pra
+ * CSS livre — ele escolhe numa escala fechada, sobre um elemento que o
+ * catálogo declarou existir. Papel não declarado não é estilizável, e
+ * papel declarado que nenhum componente marca é um controle morto: o
+ * teste de pareamento cobre os dois lados.
  */
 final class CatalogoBlocos
 {
@@ -60,6 +68,20 @@ final class CatalogoBlocos
                         'descricao' => 'Logo acima, tudo centralizado',
                     ],
                 ],
+                'elementos' => [
+                    'titulo' => [
+                        'rotulo' => 'Nome da empresa',
+                        'eixos' => ['tamanho', 'peso', 'cor', 'alinhamento'],
+                    ],
+                    'corpo' => [
+                        'rotulo' => 'CNPJ e contato',
+                        'eixos' => ['tamanho', 'peso', 'cor', 'alinhamento'],
+                    ],
+                    'destaque' => [
+                        'rotulo' => 'Número e data da fatura',
+                        'eixos' => ['tamanho', 'peso', 'cor', 'alinhamento'],
+                    ],
+                ],
                 'opcoes' => [
                     'mostrar_logo' => [
                         'tipo' => 'bool',
@@ -84,6 +106,26 @@ final class CatalogoBlocos
                     'padrao' => [
                         'rotulo' => 'Padrão',
                         'descricao' => 'Bloco em duas colunas com o mês em destaque',
+                    ],
+                ],
+                'elementos' => [
+                    'titulo' => [
+                        'rotulo' => 'Nome do cliente',
+                        'eixos' => ['tamanho', 'peso', 'cor', 'alinhamento'],
+                    ],
+                    'corpo' => [
+                        'rotulo' => 'Documento e endereço',
+                        'eixos' => ['tamanho', 'peso', 'cor'],
+                    ],
+                    'moldura' => [
+                        'rotulo' => 'Moldura do bloco',
+                        'eixos' => [
+                            'fundo',
+                            'borda',
+                            'cor_borda',
+                            'arredondamento',
+                            'espacamento',
+                        ],
                     ],
                 ],
                 'opcoes' => [
@@ -114,6 +156,10 @@ final class CatalogoBlocos
                         'rotulo' => 'Lista compacta',
                         'descricao' => 'Linhas rótulo/valor, ocupa pouca altura',
                     ],
+                ],
+                'elementos' => [
+                    // os componentes deste bloco ainda não marcam papel nenhum;
+                    // declarar aqui antes disso criaria controle morto na sidebar
                 ],
                 'opcoes' => [
                     'mostrar_creditos' => [
@@ -147,6 +193,10 @@ final class CatalogoBlocos
                         'descricao' => 'QR Code à esquerda, copia-e-cola ao lado',
                     ],
                 ],
+                'elementos' => [
+                    // os componentes deste bloco ainda não marcam papel nenhum;
+                    // declarar aqui antes disso criaria controle morto na sidebar
+                ],
                 'opcoes' => [
                     'mostrar_qrcode' => [
                         'tipo' => 'bool',
@@ -174,6 +224,10 @@ final class CatalogoBlocos
                         'descricao' => 'Barras em largura total, linha digitável acima',
                     ],
                 ],
+                'elementos' => [
+                    // os componentes deste bloco ainda não marcam papel nenhum;
+                    // declarar aqui antes disso criaria controle morto na sidebar
+                ],
                 'opcoes' => [
                     'mostrar_linha_digitavel' => [
                         'tipo' => 'bool',
@@ -196,6 +250,10 @@ final class CatalogoBlocos
                         'descricao' => 'Quadro bancário com bordas pretas',
                     ],
                 ],
+                'elementos' => [
+                    // os componentes deste bloco ainda não marcam papel nenhum;
+                    // declarar aqui antes disso criaria controle morto na sidebar
+                ],
                 'opcoes' => [
                     'mostrar_instrucoes' => [
                         'tipo' => 'bool',
@@ -217,6 +275,8 @@ final class CatalogoBlocos
                 'obrigatorio' => false,
                 'rotulo_vazio' => 'Sem nenhum gráfico',
                 'variantes' => [],
+                // sem componente não há o que estilizar
+                'elementos' => [],
                 'opcoes' => [],
             ],
 
@@ -240,6 +300,10 @@ final class CatalogoBlocos
                         'rotulo' => 'Cartões por unidade',
                         'descricao' => 'Um quadro por UC, subitens em duas colunas',
                     ],
+                ],
+                'elementos' => [
+                    // os componentes deste bloco ainda não marcam papel nenhum;
+                    // declarar aqui antes disso criaria controle morto na sidebar
                 ],
                 'opcoes' => [
                     'coluna_desconto' => [
@@ -273,6 +337,10 @@ final class CatalogoBlocos
                         'descricao' => 'Uma tabela por unidade consumidora',
                     ],
                 ],
+                'elementos' => [
+                    // os componentes deste bloco ainda não marcam papel nenhum;
+                    // declarar aqui antes disso criaria controle morto na sidebar
+                ],
                 'opcoes' => [
                     'meses' => [
                         'tipo' => 'select',
@@ -299,6 +367,10 @@ final class CatalogoBlocos
                         'descricao' => 'Aviso e lista das contas anexadas',
                     ],
                 ],
+                'elementos' => [
+                    // os componentes deste bloco ainda não marcam papel nenhum;
+                    // declarar aqui antes disso criaria controle morto na sidebar
+                ],
                 'opcoes' => [],
             ],
 
@@ -313,6 +385,30 @@ final class CatalogoBlocos
                     'padrao' => [
                         'rotulo' => 'Padrão',
                         'descricao' => 'Faixa de alerta com o telefone à direita',
+                    ],
+                ],
+                'elementos' => [
+                    'titulo' => [
+                        'rotulo' => 'Chamada do aviso',
+                        'eixos' => ['tamanho', 'peso', 'cor'],
+                    ],
+                    'corpo' => [
+                        'rotulo' => 'O que informar na ligação',
+                        'eixos' => ['tamanho', 'cor'],
+                    ],
+                    'destaque' => [
+                        'rotulo' => 'Telefone da distribuidora',
+                        'eixos' => ['tamanho', 'peso', 'cor'],
+                    ],
+                    'moldura' => [
+                        'rotulo' => 'Moldura do aviso',
+                        'eixos' => [
+                            'fundo',
+                            'borda',
+                            'cor_borda',
+                            'arredondamento',
+                            'espacamento',
+                        ],
                     ],
                 ],
                 'opcoes' => [
@@ -350,6 +446,48 @@ final class CatalogoBlocos
     public static function variantes(string $id): array
     {
         return self::bloco($id)['variantes'] ?? [];
+    }
+
+    /**
+     * Os elementos estilizáveis do bloco.
+     *
+     * Cada um traz o rótulo que aparece no painel da direita e a lista
+     * de eixos que ele aceita — é essa lista que decide quais controles
+     * o usuário vê ao clicar naquele pedaço do documento.
+     *
+     * O componente precisa MARCAR o elemento (`data-elemento`) de fato:
+     * sem marcação não há o que clicar, e o elemento declarado vira
+     * controle inalcançável. Teste trava as duas pontas.
+     *
+     * @return array<string, array{rotulo: string, eixos: list<string>}>
+     */
+    public static function elementos(string $id): array
+    {
+        return self::bloco($id)['elementos'] ?? [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function eixosDoElemento(string $id, string $elemento): array
+    {
+        return self::elementos($id)[$elemento]['eixos'] ?? [];
+    }
+
+    /**
+     * Estilos neutros de todos os elementos de um bloco.
+     *
+     * @return array<string, array<string, string|null>>
+     */
+    public static function estilosPadrao(string $id): array
+    {
+        $padrao = [];
+
+        foreach (self::elementos($id) as $elemento => $definicao) {
+            $padrao[$elemento] = array_fill_keys($definicao['eixos'], null);
+        }
+
+        return $padrao;
     }
 
     /**

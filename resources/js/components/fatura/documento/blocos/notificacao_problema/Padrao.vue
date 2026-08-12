@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { usarEstilosBloco } from '@/composables/useEstilosBloco';
 import { usarTemaFatura } from '@/composables/useTemaFatura';
+import { cn } from '@/lib/utils';
 import type { DadosFatura, OpcoesBloco } from '@/types/fatura';
 
 /**
@@ -18,6 +20,7 @@ import type { DadosFatura, OpcoesBloco } from '@/types/fatura';
 const props = defineProps<{ dados: DadosFatura; opcoes: OpcoesBloco }>();
 
 const c = usarTemaFatura();
+const e = usarEstilosBloco();
 
 /** Sem `Set` a mesma UC repetiria a cada item que ela tiver. */
 const unidades = computed(() => [
@@ -28,8 +31,15 @@ const unidades = computed(() => [
 <template>
     <div
         v-if="dados.distributor"
-        class="mt-2 flex items-center justify-between gap-4 border border-amber-200 bg-amber-50 p-3"
-        :class="c.arredondamento"
+        v-bind="
+            e(
+                'moldura',
+                cn(
+                    'mt-2 flex items-center justify-between gap-4 border border-amber-200 bg-amber-50 p-3',
+                    c.arredondamento,
+                ),
+            )
+        "
     >
         <div class="flex items-start gap-2">
             <svg
@@ -44,12 +54,17 @@ const unidades = computed(() => [
                 />
             </svg>
             <div>
-                <p class="font-semibold text-amber-800">
+                <p v-bind="e('titulo', 'font-semibold text-amber-800')">
                     Faltou energia? Acione a {{ dados.distributor.name }}
                 </p>
                 <p
                     v-if="opcoes.mostrar_identificacao"
-                    class="mt-1 flex flex-wrap items-center gap-1 text-amber-900"
+                    v-bind="
+                        e(
+                            'corpo',
+                            'mt-1 flex flex-wrap items-center gap-1 text-amber-900',
+                        )
+                    "
                 >
                     <span>Informe:</span>
                     <span
@@ -69,7 +84,7 @@ const unidades = computed(() => [
         </div>
 
         <div v-if="opcoes.mostrar_telefone" class="shrink-0 text-right">
-            <p class="text-lg font-bold text-amber-800">
+            <p v-bind="e('destaque', 'text-lg font-bold text-amber-800')">
                 &#9742; {{ dados.distributor.phone }}
             </p>
             <p class="text-amber-700">

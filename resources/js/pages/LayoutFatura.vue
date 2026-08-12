@@ -3,6 +3,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import { Download, Lock, Minus, Plus, Save, Undo2, X } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import ListaBlocos from '@/components/fatura/ListaBlocos.vue';
+import PainelElemento from '@/components/fatura/PainelElemento.vue';
 import PainelVariantes from '@/components/fatura/PainelVariantes.vue';
 import PreviewFatura from '@/components/fatura/PreviewFatura.vue';
 import { Badge } from '@/components/ui/badge';
@@ -51,6 +52,14 @@ const props = defineProps<{
     temaOpcoes: Record<keyof Tema, Record<string, string>>;
     /** Fatura de exemplo, para o documento renderizado em Vue. */
     dados: DadosFatura;
+    /*
+     * O vocabulário de estilo, já vindo do backend. Ainda sem consumidor
+     * na tela: o painel que os usa é a sidebar direita, que não existe
+     * ainda. Quais eixos cada elemento aceita vem dentro do `catalogo`.
+     */
+    estiloEscalas: Record<string, Record<string, string>>;
+    estiloPaleta: Record<string, string>;
+    estiloEixosDeCor: string[];
 }>();
 
 const editor = useLayoutFatura(props.layout);
@@ -74,6 +83,30 @@ const blocoAberto = computed(() =>
 );
 
 const selecionado = ref<string | null>(null);
+
+/**
+ * O elemento em edição dentro do bloco selecionado.
+ *
+ * É o que abre a sidebar da direita. Guarda só o nome porque o bloco já
+ * está em `abertoEm`/`selecionado` — e porque o mesmo nome (`titulo`)
+ * existe em vários blocos, então sem o par ele não identifica nada.
+ */
+const elementoSelecionado = ref<string | null>(null);
+
+/** A definição do elemento em edição, ou `null` quando não há um. */
+const elementoEmEdicao = computed(() => {
+    const bloco = blocoAberto.value;
+    const nome = elementoSelecionado.value;
+
+    if (!bloco || !nome) {
+        return null;
+    }
+
+    const definicao = props.catalogo[bloco.id]?.elementos?.[nome];
+
+    return definicao ? { bloco, nome, definicao } : null;
+});
+
 const folhasPorPagina = ref<number[]>([]);
 const zoom = ref(1);
 const salvando = ref(false);
@@ -94,16 +127,18 @@ function abrir(pos: Posicao) {
 function fechar() {
     abertoEm.value = null;
     selecionado.value = null;
+    elementoSelecionado.value = null;
 }
 
 /**
- * Clicar no documento abre a subpágina daquele bloco.
+ * Clicar no documento: abre a subpágina do bloco à esquerda e, quando o
+ * clique caiu num elemento marcado, o painel dele à direita.
  *
  * A busca é por id porque é só isso que o preview sabe — ele lê o
  * `data-bloco` do DOM. Funciona porque cada bloco do catálogo aparece no
  * máximo uma vez no layout.
  */
-function abrirPorId(id: string | null) {
+function selecionarNoPreview(id: string | null, elemento: string | null) {
     if (!id) {
         fechar();
 
@@ -117,6 +152,8 @@ function abrirPorId(id: string | null) {
             abrir({ pagina, indice });
         }
     });
+
+    elementoSelecionado.value = elemento;
 }
 
 async function salvar() {
@@ -370,12 +407,48 @@ const ajustarZoom = (delta: number) =>
                         :tema="editor.layout.value.tema"
                         :dados="dados"
                         :selecionado="selecionado"
+                        :elemento-selecionado="elementoSelecionado"
                         :zoom="zoom"
                         @medido="folhasPorPagina = $event"
-                        @selecionar="abrirPorId"
+                        @selecionar="selecionarNoPreview"
                     />
                 </div>
             </main>
+
+            <!--
+                A TERCEIRA COLUNA — o painel do elemento.
+
+                Só existe quando há elemento selecionado, e some junto com
+                ele. Ocupar espaço fixo custaria largura do papel o tempo
+                todo por uma tela que na maior parte do tempo não está em
+                uso.
+            -->
+            <aside
+                v-if="elementoEmEdicao"
+                class="w-72 shrink-0 overflow-y-auto border-l p-4"
+            >
+                <PainelElemento
+                    :bloco="elementoEmEdicao.bloco"
+                    :rotulo-bloco="catalogo[elementoEmEdicao.bloco.id].rotulo"
+                    :elemento="elementoEmEdicao.nome"
+                    :rotulo-elemento="elementoEmEdicao.definicao.rotulo"
+                    :eixos="elementoEmEdicao.definicao.eixos"
+                    :escalas="estiloEscalas"
+                    :paleta="estiloPaleta"
+                    :eixos-de-cor="estiloEixosDeCor"
+                    @fechar="elementoSelecionado = null"
+                    @definir-estilo="
+                        (eixo, valor) =>
+                            abertoEm &&
+                            editor.definirEstilo(
+                                abertoEm,
+                                elementoSelecionado!,
+                                eixo,
+                                valor,
+                            )
+                    "
+                />
+            </aside>
         </div>
     </div>
 </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { usarEstilosBloco } from '@/composables/useEstilosBloco';
 import { dataBr } from '@/lib/formato';
 import type { DadosFatura, OpcoesBloco } from '@/types/fatura';
 
@@ -10,6 +11,19 @@ import type { DadosFatura, OpcoesBloco } from '@/types/fatura';
  */
 
 defineProps<{ dados: DadosFatura; opcoes: OpcoesBloco }>();
+
+/**
+ * Os papéis que o catálogo declara pra este bloco. `e('titulo')` devolve
+ * as classes escolhidas no editor — string vazia quando nada foi mexido,
+ * e aí a marcação abaixo manda sozinha.
+ *
+ * SEMPRE via `cn()` quando o elemento já tem classe do mesmo eixo.
+ * `class="text-lg" :class="e('titulo')"` com o token em `text-xs` deixa
+ * as DUAS classes no elemento, e quem vence é a ordem do CSS gerado pelo
+ * Tailwind — não a do atributo. O `cn()` (twMerge) resolve o conflito
+ * pelo último, que é o que o usuário acabou de escolher.
+ */
+const e = usarEstilosBloco();
 </script>
 
 <template>
@@ -34,23 +48,29 @@ defineProps<{ dados: DadosFatura; opcoes: OpcoesBloco }>();
             </template>
 
             <div>
-                <p class="text-lg font-bold">
+                <p v-bind="e('titulo', 'text-lg font-bold')">
                     {{ dados.company.fantasy_name }}
                 </p>
-                <p>{{ dados.company.name }}</p>
-                <p>
-                    CNPJ: &nbsp;<span>{{ dados.company.document }}</span>
-                </p>
+                <div v-bind="e('corpo')">
+                    <p>{{ dados.company.name }}</p>
+                    <p>
+                        CNPJ: &nbsp;<span>{{ dados.company.document }}</span>
+                    </p>
 
-                <p v-if="opcoes.mostrar_contato">
-                    {{ dados.company.phone }} | {{ dados.company.email }}
-                </p>
+                    <p v-if="opcoes.mostrar_contato">
+                        {{ dados.company.phone }} | {{ dados.company.email }}
+                    </p>
+                </div>
             </div>
         </div>
 
+        <!-- o papel vai em cada <p>, não no contêiner: `text-sm` do filho
+             venceria um tamanho posto no pai, e o controle não faria nada -->
         <div class="text-right">
-            <p class="text-sm">Fatura: {{ dados.invoice.code }}</p>
-            <p class="text-sm">
+            <p v-bind="e('destaque', 'text-sm')">
+                Fatura: {{ dados.invoice.code }}
+            </p>
+            <p v-bind="e('destaque', 'text-sm')">
                 Emissão: {{ dataBr(dados.invoice.issue_date) }}
             </p>
         </div>

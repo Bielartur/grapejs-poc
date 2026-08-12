@@ -46,7 +46,7 @@ final class LayoutFatura
     ];
 
     /**
-     * @param  list<list<array{id: string, variante: string|null, opcoes: array<string, mixed>}>>  $paginas
+     * @param  list<list<array{id: string, variante: string|null, opcoes: array<string, mixed>, estilos: array<string, array<string, string|null>>}>>  $paginas
      * @param  array{arredondamento: string, destaque: string, densidade: string}  $tema
      */
     public function __construct(
@@ -69,6 +69,7 @@ final class LayoutFatura
                     'id' => $id,
                     'variante' => CatalogoBlocos::variantePadrao($id),
                     'opcoes' => CatalogoBlocos::opcoesPadrao($id),
+                    'estilos' => CatalogoBlocos::estilosPadrao($id),
                 ], $ids),
                 $paginas,
             )),
@@ -101,6 +102,7 @@ final class LayoutFatura
                     'id' => $id,
                     'variante' => self::varianteSaneada($id, $bloco),
                     'opcoes' => self::opcoesSaneadas($id, $bloco['opcoes'] ?? []),
+                    'estilos' => self::estilosSaneados($id, $bloco['estilos'] ?? []),
                 ];
             }
 
@@ -199,6 +201,32 @@ final class LayoutFatura
         return CatalogoBlocos::bloco($id)['obrigatorio']
             ? CatalogoBlocos::variantePadrao($id)
             : null;
+    }
+
+    /**
+     * Reconstrói os estilos contra os elementos que o catálogo declara.
+     *
+     * Elemento desconhecido é descartado inteiro; dentro de cada um, o
+     * `EstilosBloco` cuida de derrubar valor fora da escala. É a mesma
+     * fronteira das opções, um nível mais fundo — e é o que garante que
+     * "o usuário não escreve CSS" seja invariante do backend, não
+     * promessa da interface.
+     *
+     * @return array<string, array<string, string|null>>
+     */
+    private static function estilosSaneados(string $id, mixed $recebidos): array
+    {
+        $recebidos = is_array($recebidos) ? $recebidos : [];
+        $saneados = [];
+
+        foreach (CatalogoBlocos::elementos($id) as $elemento => $definicao) {
+            $saneados[$elemento] = EstilosBloco::saneados(
+                $definicao['eixos'],
+                $recebidos[$elemento] ?? [],
+            );
+        }
+
+        return $saneados;
     }
 
     /**

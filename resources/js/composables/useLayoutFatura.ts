@@ -39,6 +39,8 @@ export type BlocoCatalogo = {
     /** Rótulo do cartão vazio; só existe em bloco opcional. */
     rotulo_vazio?: string;
     variantes: Record<string, VarianteCatalogo>;
+    /** Papel estilizável => rótulo na tela. Ver `EstilosBloco` no PHP. */
+    elementos: Record<string, string>;
     opcoes: Record<string, DefinicaoOpcao>;
 };
 
@@ -49,6 +51,8 @@ export type BlocoLayout = {
     /** Chave da variante escolhida; `null` é "sem nenhum". */
     variante: string | null;
     opcoes: Record<string, ValorOpcao>;
+    /** Papel => eixo => token. `null` no eixo é "não mexeram". */
+    estilos: Record<string, Record<string, string | null>>;
 };
 
 export type Tema = {
@@ -116,6 +120,21 @@ export function useLayoutFatura(inicial: Layout) {
     }
 
     /**
+     * `null` devolve o eixo ao neutro — o bloco volta a mandar na
+     * aparência daquele elemento, em vez de receber um token genérico.
+     */
+    function definirEstilo(
+        pos: Posicao,
+        papel: string,
+        eixo: string,
+        valor: string | null,
+    ) {
+        const bloco = layout.value.paginas[pos.pagina][pos.indice];
+
+        bloco.estilos[papel] = { ...bloco.estilos[papel], [eixo]: valor };
+    }
+
+    /**
      * Move um bloco pra outra posição, possivelmente em outra página.
      *
      * Remover antes de inserir mexe nos índices, então o destino é
@@ -152,6 +171,7 @@ export function useLayoutFatura(inicial: Layout) {
         descartar,
         definirVariante,
         definirOpcao,
+        definirEstilo,
         mover,
         novaPagina,
     };

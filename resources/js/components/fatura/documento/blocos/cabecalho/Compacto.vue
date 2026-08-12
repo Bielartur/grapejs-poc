@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { usarEstilosBloco } from '@/composables/useEstilosBloco';
 import { usarTemaFatura } from '@/composables/useTemaFatura';
 import { dataBr } from '@/lib/formato';
+import { cn } from '@/lib/utils';
 import type { DadosFatura, OpcoesBloco } from '@/types/fatura';
 
 /**
@@ -17,6 +19,7 @@ import type { DadosFatura, OpcoesBloco } from '@/types/fatura';
 defineProps<{ dados: DadosFatura; opcoes: OpcoesBloco }>();
 
 const c = usarTemaFatura();
+const e = usarEstilosBloco();
 </script>
 
 <template>
@@ -41,10 +44,14 @@ const c = usarTemaFatura();
             </template>
 
             <div class="min-w-0">
-                <p class="truncate font-bold" :class="c.destaque_texto">
+                <p
+                    v-bind="
+                        e('titulo', cn('truncate font-bold', c.destaque_texto))
+                    "
+                >
                     {{ dados.company.fantasy_name }}
                 </p>
-                <p class="truncate text-xs text-gray-600">
+                <p v-bind="e('corpo', 'truncate text-xs text-gray-600')">
                     CNPJ: {{ dados.company.document }}
                     <template v-if="opcoes.mostrar_contato">
                         · {{ dados.company.phone }} · {{ dados.company.email }}
@@ -53,9 +60,11 @@ const c = usarTemaFatura();
             </div>
         </div>
 
-        <div class="shrink-0 text-right text-xs whitespace-nowrap">
-            <p class="font-semibold">Fatura {{ dados.invoice.code }}</p>
-            <p class="text-gray-600">
+        <div class="shrink-0 text-right whitespace-nowrap">
+            <p v-bind="e('destaque', 'text-xs font-semibold')">
+                Fatura {{ dados.invoice.code }}
+            </p>
+            <p v-bind="e('destaque', 'text-xs text-gray-600')">
                 {{ dataBr(dados.invoice.issue_date) }}
             </p>
         </div>

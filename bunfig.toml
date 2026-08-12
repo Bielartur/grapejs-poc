@@ -1,0 +1,4 @@
+[run]
+# Vite 8 (Rolldown) exige Node >= 20.19; roda os scripts no runtime do Bun
+# para não depender da versão de Node instalada na máquina.
+bun = true

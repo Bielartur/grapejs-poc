@@ -25,12 +25,14 @@ const props = defineProps<{
     /** 1-based, só para rotular. */
     numero: number;
     selecionado: string | null;
+    /** Elemento selecionado DENTRO do bloco, quando há um. */
+    elementoSelecionado: string | null;
 }>();
 
 const emit = defineEmits<{
     /** Quantas folhas de PDF esta página ocupa. */
     medido: [folhas: number];
-    selecionar: [id: string | null];
+    selecionar: [id: string | null, elemento: string | null];
 }>();
 
 /**
@@ -51,6 +53,19 @@ const conteudo = ref(ALTURA_A4);
 const cortes = ref<number[]>([0]);
 
 const destaque = ref<{ topo: number; altura: number } | null>(null);
+
+/**
+ * O elemento selecionado dentro do bloco. Guarda também largura e
+ * esquerda, ao contrário do destaque do bloco: um bloco ocupa a linha
+ * inteira, um elemento não — marcar a linha toda apontaria pro lugar
+ * errado num cabeçalho de duas colunas.
+ */
+const destaqueElemento = ref<{
+    topo: number;
+    altura: number;
+    largura: number;
+    esquerda: number;
+} | null>(null);
 
 /**
  * A primeira folha é quem mede. Ela é a única com deslocamento zero, o
@@ -157,6 +172,7 @@ function posicionarDestaque() {
 
     if (!el || !props.selecionado) {
         destaque.value = null;
+        destaqueElemento.value = null;
 
         return;
     }
@@ -168,15 +184,70 @@ function posicionarDestaque() {
     destaque.value = alvo
         ? { topo: alvo.offsetTop, altura: alvo.offsetHeight }
         : null;
+
+    destaqueElemento.value = medirElemento(alvo);
 }
 
-/** Clicar no documento seleciona o bloco correspondente na lista. */
-function aoClicar(evento: MouseEvent) {
-    const alvo = (evento.target as HTMLElement | null)?.closest?.(
-        '[data-bloco]',
+/**
+ * O retângulo do elemento selecionado, em coordenadas do documento.
+ *
+ * `offsetTop` é relativo ao ancestral posicionado, e um elemento no meio
+ * do bloco pode ter outro `offsetParent` que não a raiz — daí somar a
+ * cadeia até chegar nela, em vez de ler o valor cru como o destaque do
+ * bloco faz. O bloco é filho direto da raiz; o elemento não é.
+ */
+function medirElemento(
+    bloco: HTMLElement | null,
+): { topo: number; altura: number; largura: number; esquerda: number } | null {
+    if (!bloco || !props.elementoSelecionado) {
+        return null;
+    }
+
+    const alvo = bloco.querySelector<HTMLElement>(
+        `[data-elemento="${props.elementoSelecionado}"]`,
     );
 
-    emit('selecionar', alvo?.getAttribute('data-bloco') ?? null);
+    if (!alvo) {
+        return null;
+    }
+
+    let topo = 0;
+    let esquerda = 0;
+    let atual: HTMLElement | null = alvo;
+
+    while (atual && atual !== raiz.value) {
+        topo += atual.offsetTop;
+        esquerda += atual.offsetLeft;
+        atual = atual.offsetParent as HTMLElement | null;
+    }
+
+    return {
+        topo,
+        esquerda,
+        altura: alvo.offsetHeight,
+        largura: alvo.offsetWidth,
+    };
+}
+
+/**
+ * Clicar no documento seleciona o bloco E, quando o clique cai num
+ * elemento marcado, o elemento dentro dele.
+ *
+ * Os dois `closest` sobem a partir do mesmo alvo, então clicar no nome
+ * da empresa devolve `cabecalho` + `titulo`, e clicar no espaço entre
+ * elementos devolve `cabecalho` + `null` — que é o que fecha o painel de
+ * estilo sem fechar a seleção do bloco.
+ */
+function aoClicar(evento: MouseEvent) {
+    const origem = evento.target as HTMLElement | null;
+    const bloco = origem?.closest?.('[data-bloco]');
+    const elemento = origem?.closest?.('[data-elemento]');
+
+    emit(
+        'selecionar',
+        bloco?.getAttribute('data-bloco') ?? null,
+        elemento?.getAttribute('data-elemento') ?? null,
+    );
 }
 
 /** Deslocamento do documento dentro da janela de uma folha (1-based). */
@@ -222,7 +293,7 @@ watch(
     { deep: true },
 );
 
-watch(() => props.selecionado, posicionarDestaque);
+watch(() => [props.selecionado, props.elementoSelecionado], posicionarDestaque);
 
 onMounted(() => void nextTick(medir));
 onBeforeUnmount(() => observador?.disconnect());
@@ -270,7 +341,10 @@ onBeforeUnmount(() => observador?.disconnect());
                         }"
                         @click="aoClicar"
                     >
+                        <!-- `editavel` liga o realce de hover dos
+                             elementos; ver o <style> no fim do arquivo -->
                         <DocumentoFatura
+                            class="editavel"
                             :paginas="[blocos]"
                             :tema="tema"
                             :dados="dados"
@@ -282,12 +356,31 @@ onBeforeUnmount(() => observador?.disconnect());
                 <div
                     class="pointer-events-none absolute inset-0 overflow-hidden"
                 >
+                    <!-- o bloco: contorno discreto, é só contexto -->
                     <div
                         v-if="destaque"
-                        class="absolute right-0 left-0 rounded-sm bg-primary/5 ring-2 ring-primary"
+                        class="absolute right-0 left-0 rounded-sm"
+                        :class="
+                            elementoSelecionado
+                                ? 'ring-1 ring-primary/30'
+                                : 'bg-primary/5 ring-2 ring-primary'
+                        "
                         :style="{
                             top: `${destaque.topo + deslocamento(folha)}px`,
                             height: `${destaque.altura}px`,
+                        }"
+                    />
+
+                    <!-- o elemento: é ele que está sendo editado, então
+                         ganha o destaque forte quando existe -->
+                    <div
+                        v-if="destaqueElemento"
+                        class="absolute rounded-xs bg-primary/10 ring-2 ring-primary"
+                        :style="{
+                            top: `${destaqueElemento.topo + deslocamento(folha)}px`,
+                            left: `${destaqueElemento.esquerda}px`,
+                            width: `${destaqueElemento.largura}px`,
+                            height: `${destaqueElemento.altura}px`,
                         }"
                     />
 
@@ -302,3 +395,27 @@ onBeforeUnmount(() => observador?.disconnect());
         </div>
     </div>
 </template>
+
+<!--
+    O REALCE DE HOVER É DO EDITOR, NÃO DO DOCUMENTO.
+
+    Mora aqui, escopado, e não em `documento.css`: aquela folha é
+    carregada TAMBÉM pela casca que o Browsershot abre, e uma regra de
+    hover lá sairia no PDF (não visualmente, mas como CSS morto que
+    alguém teria que explicar depois).
+
+    `:deep()` é necessário porque os elementos marcados são renderizados
+    pelos componentes de bloco, que estão fora do escopo deste arquivo.
+-->
+<style scoped>
+.editavel :deep([data-elemento]) {
+    cursor: pointer;
+    transition: outline-color 120ms;
+    outline: 1px dashed transparent;
+    outline-offset: 2px;
+}
+
+.editavel :deep([data-elemento]:hover) {
+    outline-color: var(--color-primary);
+}
+</style>

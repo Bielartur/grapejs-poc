@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Fatura\CatalogoBlocos;
 use App\Fatura\DadosExemplo;
+use App\Fatura\EstilosBloco;
 use App\Fatura\LayoutFatura;
 use App\Fatura\RepositorioLayout;
 use Illuminate\Http\Request;
@@ -39,6 +40,15 @@ final class LayoutFaturaController extends Controller
                 'destaque' => LayoutFatura::DESTAQUES,
                 'densidade' => LayoutFatura::DENSIDADES,
             ],
+            /*
+             * O vocabulário de estilo. Quais eixos cada elemento aceita
+             * vem no próprio catálogo; aqui vão as escalas (os botões de
+             * cada eixo discreto), a paleta de um clique e quais eixos
+             * são de cor — o painel decide o widget por esta última.
+             */
+            'estiloEscalas' => EstilosBloco::escalas(),
+            'estiloPaleta' => EstilosBloco::PALETA,
+            'estiloEixosDeCor' => EstilosBloco::EIXOS_DE_COR,
         ]);
     }
 

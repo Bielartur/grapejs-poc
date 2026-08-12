@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import BlocoPendente from '@/components/fatura/documento/BlocoPendente.vue';
-import { componenteDe } from '@/components/fatura/documento/componentes';
+import BlocoDocumento from '@/components/fatura/documento/BlocoDocumento.vue';
 import type { BlocoLayout, Tema } from '@/composables/useLayoutFatura';
 import { proverTemaFatura } from '@/composables/useTemaFatura';
 import type { DadosFatura } from '@/types/fatura';
@@ -46,26 +45,13 @@ proverTemaFatura(() => props.tema);
             class="boleto-text mx-auto max-w-4xl bg-white px-6 py-8"
             :class="{ 'page-break': pagina > 0 }"
         >
-            <template v-for="bloco in blocos" :key="bloco.id">
-                <section
-                    v-if="bloco.variante"
-                    :data-bloco="bloco.id"
-                    data-unidade
-                    class="mb-4"
-                >
-                    <component
-                        :is="componenteDe(bloco.id, bloco.variante)"
-                        v-if="componenteDe(bloco.id, bloco.variante)"
-                        :dados="dados"
-                        :opcoes="bloco.opcoes"
-                    />
-                    <BlocoPendente
-                        v-else
-                        :id-bloco="bloco.id"
-                        :variante="bloco.variante"
-                    />
-                </section>
-            </template>
+            <BlocoDocumento
+                v-for="bloco in blocos"
+                :key="bloco.id"
+                :bloco="bloco"
+                :tema="tema"
+                :dados="dados"
+            />
         </div>
     </div>
 </template>

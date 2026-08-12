@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { usarEstilosBloco } from '@/composables/useEstilosBloco';
 import { usarTemaFatura } from '@/composables/useTemaFatura';
 import { dataBr } from '@/lib/formato';
+import { cn } from '@/lib/utils';
 import type { DadosFatura, OpcoesBloco } from '@/types/fatura';
 
 /**
@@ -14,6 +16,7 @@ import type { DadosFatura, OpcoesBloco } from '@/types/fatura';
 defineProps<{ dados: DadosFatura; opcoes: OpcoesBloco }>();
 
 const c = usarTemaFatura();
+const e = usarEstilosBloco();
 </script>
 
 <template>
@@ -34,19 +37,34 @@ const c = usarTemaFatura();
         </template>
 
         <div>
-            <p class="text-xl font-bold">{{ dados.company.fantasy_name }}</p>
-            <p class="text-sm text-gray-600">{{ dados.company.name }}</p>
-            <p class="text-sm text-gray-600">
+            <p v-bind="e('titulo', 'text-xl font-bold')">
+                {{ dados.company.fantasy_name }}
+            </p>
+            <p v-bind="e('corpo', 'text-sm text-gray-600')">
+                {{ dados.company.name }}
+            </p>
+            <p v-bind="e('corpo', 'text-sm text-gray-600')">
                 CNPJ: {{ dados.company.document }}
             </p>
-            <p v-if="opcoes.mostrar_contato" class="text-sm text-gray-600">
+            <p
+                v-if="opcoes.mostrar_contato"
+                v-bind="e('corpo', 'text-sm text-gray-600')"
+            >
                 {{ dados.company.phone }} | {{ dados.company.email }}
             </p>
         </div>
 
         <div
-            class="mt-1 w-full border-t-2 pt-2 text-sm font-medium"
-            :class="[c.destaque_borda, c.destaque_texto]"
+            v-bind="
+                e(
+                    'destaque',
+                    cn(
+                        'mt-1 w-full border-t-2 pt-2 text-sm font-medium',
+                        c.destaque_borda,
+                        c.destaque_texto,
+                    ),
+                )
+            "
         >
             Fatura {{ dados.invoice.code }} · Emissão em
             {{ dataBr(dados.invoice.issue_date) }}
